@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.csq.downloadmanager.demo" >
+
+    <uses-sdk
+        android:minSdkVersion="9"
+        android:targetSdkVersion="21"
+        />
+
+    <!-- Allows access to the Download Manager -->
+    <permission
+        android:name="com.csq.permission.ACCESS_DOWNLOAD_MANAGER"
+        android:description="@string/permission_desc"
+        android:label="@string/permission_label"
+        android:protectionLevel="normal" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
+    <uses-permission android:name="com.csq.permission.ACCESS_DOWNLOAD_MANAGER" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" >
+
+        <activity
+            android:name=".MainActivity"
+            android:label="@string/app_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name="com.csq.downloadmanager.provider.DownloadProvider"
+            android:authorities="com.csq.downloadmanager" />
+
+        <service android:name="com.csq.downloadmanager.service.DownloadService" />
+
+    </application>
+
+</manifest>
