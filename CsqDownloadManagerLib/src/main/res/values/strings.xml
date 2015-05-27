@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">CsqDownloadManagerLib</string>
+
+    <string name="error_message_empty"></string>
+    <string name="error_message_storage_not_enough">存储空间不足</string>
+    <string name="error_message_sdcard_unmounted">存储卡连接异常</string>
+    <string name="error_message_network_blocked">网络连接异常</string>
+    <string name="error_message_only_wifi">非wifi网络不能下载此任务</string>
+    <string name="error_message_is_roaming">漫游情况下不能下载此任务</string>
+
+    <string name="permission_label">"访问下载管理器。"</string>
+    <string name="permission_desc">"允许应用程序访问下载管理器以及用它下载文件。恶意应用程序可借此干扰下载，以及访问隐私信息。"</string>
+
+</resources>
