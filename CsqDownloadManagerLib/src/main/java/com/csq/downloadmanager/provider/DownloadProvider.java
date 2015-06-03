@@ -16,6 +16,7 @@ import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
 import android.text.TextUtils;
 import com.csq.downloadmanager.db.DownloadOpenHelper;
+import com.csq.downloadmanager.util.Helpers;
 import com.csq.downloadmanager.util.TableUtil;
 import com.csq.downloadmanager.service.DownloadService;
 import com.csq.downloadmanager.util.LogUtil;
@@ -76,7 +77,7 @@ public class DownloadProvider extends ContentProvider {
 
     @Override
     public Uri insert(Uri uri, ContentValues values) {
-        checkAccessPermission();
+        Helpers.checkAccessPermission(getContext());
 
         int match = sURIMatcher.match(uri);
         if (match != MatchCode) {
@@ -223,13 +224,6 @@ public class DownloadProvider extends ContentProvider {
 
 
     // --------------------- Methods private ---------------------
-
-    private void checkAccessPermission(){
-        // 检查自己或者其它调用者是否有 permission 权限
-        getContext().enforceCallingOrSelfPermission(
-                Downloads.PERMISSION_ACCESS,
-                Downloads.PERMISSION_ACCESS + " permission is required to use the download manager");
-    }
 
     private String getDownloadIdFromUri(final Uri uri) {
         return uri.getPathSegments().get(1);

@@ -51,7 +51,8 @@ public class DownloadManager {
      * @param info 下载信息
      * @return DownloadInfo.id
      */
-    public long startDownload(@NonNull DownloadInfo info){
+    public long startDownload(@NonNull DownloadInfo info)
+            throws DownloadInfoDao.UrlInvalidError, DownloadInfoDao.UrlAlreadyDownloadError {
         long id = dao.startDownload(info);
         if(id > 0){
             startService(app);
@@ -77,7 +78,7 @@ public class DownloadManager {
      * @param ids 要暂停的DownloadInfo.id
      * @return 暂停的数量
      */
-    public int pauseDownload(long... ids) {
+    public int pauseDownload(long... ids) throws DownloadInfoDao.UnExpectedStatus {
         int num = dao.pauseDownload(ids);
         if(num > 0){
             startService(app);
@@ -90,7 +91,7 @@ public class DownloadManager {
      * @param ids 要恢复的DownloadInfo.id
      * @return 恢复的数量
      */
-    public int resumeDownload(long... ids) {
+    public int resumeDownload(long... ids) throws DownloadInfoDao.UnExpectedStatus {
         int num = dao.resumeDownload(ids);
         if(num > 0){
             startService(app);
@@ -103,7 +104,7 @@ public class DownloadManager {
      * @param ids 要重新下载的DownloadInfo.id
      * @return 重新下载的数量
      */
-    public int restartDownload(long... ids) {
+    public int restartDownload(long... ids) throws DownloadInfoDao.UnExpectedStatus {
         int num = dao.restartDownload(ids);
         if(num > 0){
             startService(app);

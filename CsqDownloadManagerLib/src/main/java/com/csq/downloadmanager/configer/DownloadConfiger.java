@@ -55,10 +55,14 @@ public class DownloadConfiger {
      */
     public static final int MaxTaskRetryTimes = 5;
 
-    // 2 GB
-    public static final long DOWNLOAD_MAX_BYTES_OVER_MOBILE = 2 * 1024 * 1024 * 1024L;
-    // 1 GB
-    public static final long DOWNLOAD_RECOMMENDED_MAX_BYTES_OVER_MOBILE = 1024 * 1024 * 1024;
+    /**
+     * 手机网络下能下载的最大大小，1G
+     */
+    public static final long DOWNLOAD_MAX_BYTES_OVER_MOBILE = 1024 * 1024 * 1024L;
+    /**
+     * 推荐wifi下下载的大小，512M
+     */
+    public static final long DOWNLOAD_BYTES_RECOMMEND_WIFI = 512 * 1024 * 1024L;
 
     /**
      * 下载事件分发器，默认通过广播的方式

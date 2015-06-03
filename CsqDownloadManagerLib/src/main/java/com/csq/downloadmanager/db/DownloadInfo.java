@@ -16,18 +16,18 @@ import com.csq.downloadmanager.util.DbUtil;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
+
 /**
  * Entity mapped to table DOWNLOAD_INFO.
  */
 public class DownloadInfo implements java.io.Serializable {
 
     //等待下载状态[0,10)
-    public static final int StatusWaitingForService = 0;      //初始状态，还未被查询到并开始下载
-    public static final int StatusWaitingForTaskFinish = 1;   //当前下载的任务数已经饱和，等待正在下载的任务结束
-    public static final int StatusWaitingForNet = 2;          //当前网络断开，等待网络
-    public static final int StatusWaitingForWifi = 3;         //仅在wifi下才能下载，等待wifi
-    public static final int StatusWaitingForNonRoaming = 4;   //漫游状态，不能下载
-    public static final int StatusWaitingForRetry = 5;        //等待再次尝试下载
+    public static final int StatusWaitingForExecute = 0;      //初始状态，还未被查询到并开始下载;或者当前下载的任务数已经饱和，等待正在下载的任务结束
+    public static final int StatusWaitingForNet = 1;          //当前网络断开，等待网络
+    public static final int StatusWaitingForWifi = 2;         //仅在wifi下才能下载，等待wifi
+    public static final int StatusWaitingForRetry = 3;        //等待再次尝试下载，或者Retry-After，优先级低于StatusWaitingForExecute
     //正常下载状态[10,20)
     public static final int StatusDowning = 10;               //下载中
     public static final int StatusPaused = 11;                //暂停
@@ -38,18 +38,15 @@ public class DownloadInfo implements java.io.Serializable {
     public static final int StatusFailedCanceled = 31;          //已经取消下载
     public static final int StatusFailedSdcardUnmounted = 32;   //存储卡未挂载
     public static final int StatusFailedStorageNotEnough = 33;  //存储空间不足
-    public static final int StatusFailedRetryAfter = 34;        //Retry-After Header
+    public static final int StatusFailedCannotUseRoaming = 34;  //不能漫游
     public static final int StatusFailedRedirectError = 35;     //重定向过多或异常
-    public static final int StatusFailedHttpDataError = 36;     //下载所需的信息没有(lenght、正确地状态码等)、URISyntaxException、IllegalArgumentException、重复下载超过重试次数
-    public static final int StatusFailedHttpException = 37;     //Http Exceptions
-    public static final int StatusFailedIoError = 38;           //文件异常
-    public static final int StatusFailedPermissionDenied = 39;  //权限异常
+    public static final int StatusFailedUnExpectedStatusCode = 36; //状态码>=400
+    public static final int StatusFailedPermissionDenied = 37;  //权限异常
+    public static final int StatusFailedOtherException = 38;    //其他异常,IOException、MalformedURLException......
 
-    @IntDef({StatusWaitingForService,
-            StatusWaitingForTaskFinish,
+    @IntDef({StatusWaitingForExecute,
             StatusWaitingForNet,
             StatusWaitingForWifi,
-            StatusWaitingForNonRoaming,
             StatusWaitingForRetry,
             StatusDowning,
             StatusPaused,
@@ -58,12 +55,11 @@ public class DownloadInfo implements java.io.Serializable {
             StatusFailedCanceled,
             StatusFailedSdcardUnmounted,
             StatusFailedStorageNotEnough,
-            StatusFailedRetryAfter,
+            StatusFailedCannotUseRoaming,
             StatusFailedRedirectError,
-            StatusFailedHttpDataError,
-            StatusFailedHttpException,
-            StatusFailedIoError,
-            StatusFailedPermissionDenied
+            StatusFailedUnExpectedStatusCode,
+            StatusFailedPermissionDenied,
+            StatusFailedOtherException,
     })
     public @interface DownloadStatus {
     }
@@ -122,7 +118,7 @@ public class DownloadInfo implements java.io.Serializable {
      */
     private final DownloadedBytes currentBytes = new DownloadedBytes();
     /**
-     * 重定位的下载地址
+     * 重定位的下载地址, 可能与{@link #url 相同}
      */
     private String reDirectUrl;
     /**
@@ -142,12 +138,17 @@ public class DownloadInfo implements java.io.Serializable {
      * 失败下载次数
      */
     public int numFailed;
+    /**
+     * 再次尝试的时间点
+     */
+    public long retryAfterTime;
 
 
     public DownloadInfo(@NonNull String url) {
         this.url = url;
         this.folderPath = DownloadConfiger.getDefaultDownloadPath();
-        this.status = StatusWaitingForService;
+        this.status = StatusWaitingForExecute;
+        this.lastModifyTime = System.currentTimeMillis();
     }
 
     public long getId() {
@@ -334,6 +335,15 @@ public class DownloadInfo implements java.io.Serializable {
         return this;
     }
 
+    public long getRetryAfterTime() {
+        return retryAfterTime;
+    }
+
+    public DownloadInfo setRetryAfterTime(long retryAfterTime) {
+        this.retryAfterTime = retryAfterTime;
+        return this;
+    }
+
     public boolean isWaiting(){
         return status < 10;
     }
@@ -377,10 +387,17 @@ public class DownloadInfo implements java.io.Serializable {
         DbUtil.putIfNonNull(cv, Downloads.ColumnLastModifyTime, lastModifyTime);
         DbUtil.putIfNonNull(cv, Downloads.ColumnStatus, status);
         DbUtil.putIfNonNull(cv, Downloads.ColumnNumFailed, numFailed);
+        DbUtil.putIfNonNull(cv, Downloads.ColumnRetryAfterTime, retryAfterTime);
         return cv;
     }
 
-
+    /**
+     * 返回临时下载某段文件路径，eg:/mnt/sdcard/CsqDownload/.a.txt.0_3
+     */
+    public String getTempFilePath(int index){
+        return DownloadConfiger.getDefaultDownloadPath() + File.separator
+                + "." + fileName + "." + index + "_" + getThreadNum();
+    }
 
     /*@StringRes
     public int getErrorMessageStringResId(){
@@ -438,6 +455,10 @@ public class DownloadInfo implements java.io.Serializable {
                     }
                 }
             }
+        }
+
+        public void clear(){
+            update(null);
         }
 
         public void updateSectionBytes(int index, int bytes){

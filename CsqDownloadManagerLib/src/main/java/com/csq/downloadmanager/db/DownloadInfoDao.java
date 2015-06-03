@@ -12,10 +12,13 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.webkit.URLUtil;
 import com.csq.downloadmanager.db.query.IWhere;
 import com.csq.downloadmanager.db.query.Where;
+import com.csq.downloadmanager.db.update.UpdateCondition;
 import com.csq.downloadmanager.provider.Downloads;
 import com.csq.downloadmanager.util.DbUtil;
+import com.csq.downloadmanager.util.Helpers;
 import com.csq.downloadmanager.util.SqlUtils;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,10 +31,12 @@ public class DownloadInfoDao {
 
     // ------------------------- Fields --------------------------
 
+    private volatile static Context app;
     private volatile static DownloadInfoDao instance;
 
     private DownloadInfoDao(Context context) {
-        this.mResolver = context.getApplicationContext().getContentResolver();
+        this.app = context.getApplicationContext();
+        this.mResolver = this.app.getContentResolver();
     }
 
     public static DownloadInfoDao getInstace(Context context) {
@@ -58,8 +63,17 @@ public class DownloadInfoDao {
      * @param info 下载信息
      * @return DownloadInfo.id
      */
-    public long startDownload(@NonNull DownloadInfo info){
-        info.setStatus(DownloadInfo.StatusWaitingForService);  //ensure status
+    public long startDownload(@NonNull DownloadInfo info)
+            throws UrlInvalidError, UrlAlreadyDownloadError {
+        Helpers.checkAccessPermission(app);
+
+        if(!URLUtil.isNetworkUrl(info.getUrl())){
+            throw new UrlInvalidError(info.getUrl());
+        }
+        if(!queryDownloadInfos(Where.create().eq(Downloads.ColumnUrl, info.getUrl()), null).isEmpty()){
+            throw new UrlAlreadyDownloadError(info.getUrl());
+        }
+        info.setStatus(DownloadInfo.StatusWaitingForExecute);  //ensure status
         Uri downloadUri = mResolver.insert(Downloads.CONTENT_URI, info.toContentValues());
         long id = Long.parseLong(downloadUri.getLastPathSegment());
         info.setId(id);
@@ -81,11 +95,39 @@ public class DownloadInfoDao {
     }
 
     /**
+     * 更新下载记录
+     * @param condition 更新字段及条件
+     * @return 被更改的数量
+     */
+    public int updateDownload(@NonNull UpdateCondition condition){
+        if(condition.getContentValues().size() < 1){
+            return 0;
+        }
+        return mResolver.update(Downloads.CONTENT_URI,
+                condition.getContentValues(),
+                condition.getWhereClause(),
+                condition.getWhereArgs());
+    }
+
+    /**
+     * 更新下载记录
+     * @return 被更改的数量
+     */
+    public int updateDownload(@NonNull DownloadInfo info){
+        ContentValues cv = info.toContentValues();
+
+        return mResolver.update(Downloads.CONTENT_URI,
+                cv,
+                Downloads.ColumnID + " = " + info.getId(),
+                null);
+    }
+
+    /**
      * 暂停下载记录,只能暂停等待以及下载中的记录
      * @param ids 要暂停的DownloadInfo.id
      * @return 暂停的数量
      */
-    public int pauseDownload(long... ids) {
+    public int pauseDownload(long... ids) throws UnExpectedStatus {
         if(ids.length < 1){
             return 0;
         }
@@ -95,7 +137,7 @@ public class DownloadInfoDao {
         }
         for(DownloadInfo di : infos){
             if(!di.isWaiting() && !di.isDowning()){
-                throw new IllegalArgumentException(
+                throw new UnExpectedStatus(
                         "Can only pause a waiting or downing downloadInfo: "
                                 + " id = " + di.getId()
                                 + " name = " + di.getFileName()
@@ -103,12 +145,9 @@ public class DownloadInfoDao {
             }
         }
 
-        ContentValues cv = new ContentValues();
-        cv.put(Downloads.ColumnStatus, DownloadInfo.StatusPaused);
-        return mResolver.update(Downloads.CONTENT_URI,
-                cv,
-                SqlUtils.getWhereClauseForIds(ids),
-                SqlUtils.getWhereArgsForIds(ids));
+        return updateDownload(UpdateCondition.create()
+                .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusPaused)
+                .setWhere(new Where().in(Downloads.ColumnID, ids)));
     }
 
     /**
@@ -116,7 +155,7 @@ public class DownloadInfoDao {
      * @param ids 要恢复的DownloadInfo.id
      * @return 恢复的数量
      */
-    public int resumeDownload(long... ids) {
+    public int resumeDownload(long... ids) throws UnExpectedStatus {
         if(ids.length < 1){
             return 0;
         }
@@ -126,7 +165,7 @@ public class DownloadInfoDao {
         }
         for(DownloadInfo di : infos){
             if(!di.isPaused()){
-                throw new IllegalArgumentException(
+                throw new UnExpectedStatus(
                         "Can only resume a paused downloadInfo: "
                                 + " id = " + di.getId()
                                 + " name = " + di.getFileName()
@@ -134,12 +173,9 @@ public class DownloadInfoDao {
             }
         }
 
-        ContentValues cv = new ContentValues();
-        cv.put(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForService);
-        return mResolver.update(Downloads.CONTENT_URI,
-                cv,
-                SqlUtils.getWhereClauseForIds(ids),
-                SqlUtils.getWhereArgsForIds(ids));
+        return updateDownload(UpdateCondition.create()
+                .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForExecute)
+                .setWhere(new Where().in(Downloads.ColumnID, ids)));
     }
 
     /**
@@ -147,7 +183,7 @@ public class DownloadInfoDao {
      * @param ids 要重新下载的DownloadInfo.id
      * @return 重新下载的数量
      */
-    public int restartDownload(long... ids) {
+    public int restartDownload(long... ids) throws UnExpectedStatus {
         if(ids.length < 1){
             return 0;
         }
@@ -157,7 +193,7 @@ public class DownloadInfoDao {
         }
         for(DownloadInfo di : infos){
             if(!di.isFailed()){
-                throw new IllegalArgumentException(
+                throw new UnExpectedStatus(
                         "Can only reStart a failed downloadInfo: "
                                 + " id = " + di.getId()
                                 + " name = " + di.getFileName()
@@ -165,12 +201,9 @@ public class DownloadInfoDao {
             }
         }
 
-        ContentValues cv = new ContentValues();
-        cv.put(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForService);
-        return mResolver.update(Downloads.CONTENT_URI,
-                cv,
-                SqlUtils.getWhereClauseForIds(ids),
-                SqlUtils.getWhereArgsForIds(ids));
+        return updateDownload(UpdateCondition.create()
+                .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForExecute)
+                .setWhere(new Where().in(Downloads.ColumnID, ids)));
     }
 
     /**
@@ -195,7 +228,8 @@ public class DownloadInfoDao {
      * @param where 查询条件
      * @param sortOrder 排序方式，{@link SqlUtils#getSortOrder(String, boolean)}
      */
-    public List<DownloadInfo> queryDownloadInfos(@NonNull IWhere where, @Nullable String sortOrder) {
+    @NonNull
+    public List<DownloadInfo> queryDownloadInfos(@NonNull IWhere where, String sortOrder) {
         Cursor cursor = query(where, sortOrder);
         try {
             if(cursor == null || cursor.getCount() < 1){
@@ -234,6 +268,29 @@ public class DownloadInfoDao {
 
     // --------------- Inner and Anonymous Classes ---------------
 
+    public class UrlInvalidError extends Throwable {
+        private static final long serialVersionUID = 1L;
+
+        public UrlInvalidError(String url) {
+            super("downloadInfo.url is invalid : " + url);
+        }
+    }
+
+    public class UrlAlreadyDownloadError extends Throwable {
+        private static final long serialVersionUID = 1L;
+
+        public UrlAlreadyDownloadError(String url) {
+            super("already have a valid download task of :(url) " + url);
+        }
+    }
+
+    public class UnExpectedStatus extends Throwable {
+        private static final long serialVersionUID = 1L;
+
+        public UnExpectedStatus(String msg) {
+            super(msg);
+        }
+    }
 
     // --------------------- logical fragments -----------------
 

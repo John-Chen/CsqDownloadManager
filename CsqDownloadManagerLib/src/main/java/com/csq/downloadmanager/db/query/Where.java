@@ -31,6 +31,10 @@ public class Where implements IWhere{
 
     // --------------------- Methods public ----------------------
 
+    public static Where create(){
+        return new Where();
+    }
+
     /**
      * Add a '=' clause so the column must be equal to the value.
      */

@@ -125,6 +125,11 @@ public class Downloads {
      */
     public static final String ColumnNumFailed = "numFailed";
 
+    /**
+     * Type: lont
+     */
+    public static final String ColumnRetryAfterTime = "retryAfterTime";
+
 
     public static final Map<String, String> ProjectionMap = new HashMap<String, String>();
     static {
@@ -146,6 +151,7 @@ public class Downloads {
         ProjectionMap.put(ColumnLastModifyTime, ColumnLastModifyTime);
         ProjectionMap.put(ColumnStatus, ColumnStatus);
         ProjectionMap.put(ColumnNumFailed, ColumnNumFailed);
+        ProjectionMap.put(ColumnRetryAfterTime, ColumnRetryAfterTime);
     }
 
     public static final Map<String, Integer> AllProjectionMap = new LinkedHashMap<String, Integer>(18);
@@ -168,6 +174,7 @@ public class Downloads {
         AllProjectionMap.put(ColumnLastModifyTime, 15);
         AllProjectionMap.put(ColumnStatus, 16);
         AllProjectionMap.put(ColumnNumFailed, 17);
+        AllProjectionMap.put(ColumnRetryAfterTime, 18);
     };
 
     /**

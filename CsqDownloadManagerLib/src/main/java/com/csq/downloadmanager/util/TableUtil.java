@@ -49,10 +49,13 @@ public class TableUtil {
                 Downloads.ColumnReDirectUrl + " TEXT," + // 13: reDirectUrl
                 Downloads.ColumnETag + " TEXT," + // 14: eTag
                 Downloads.ColumnLastModifyTime + " BIGINT," + // 15: lastModifyTime
-                Downloads.ColumnStatus + " INTEGER DEFAULT " + DownloadInfo.StatusWaitingForService + "," + // 16: status
+                Downloads.ColumnStatus + " INTEGER DEFAULT " + DownloadInfo.StatusWaitingForExecute + "," + // 16: status
                 Downloads.ColumnNumFailed + " INTEGER," + // 17: waitingReason
+                Downloads.ColumnRetryAfterTime + " BIGINT," + // 18: retryAfterTime
                 ");";
         db.execSQL(sql);
+
+        db.execSQL("CREATE INDEX index_url ON " + TABLE_NAME + "(" + Downloads.ColumnUrl + ")");
 
         LogUtil.d(TableUtil.class, sql);
     }

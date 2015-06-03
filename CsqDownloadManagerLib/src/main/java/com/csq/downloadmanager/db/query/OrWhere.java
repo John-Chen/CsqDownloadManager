@@ -47,6 +47,10 @@ public class OrWhere implements IWhere {
 
     // --------------------- Methods public ----------------------
 
+    public static OrWhere create(){
+        return new OrWhere();
+    }
+
     public OrWhere or(@NonNull IWhere w){
         if(!TextUtils.isEmpty(w.getSelection())){
             wheres.add(w);

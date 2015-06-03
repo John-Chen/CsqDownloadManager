@@ -47,6 +47,10 @@ public class AndWhere implements IWhere {
 
     // --------------------- Methods public ----------------------
 
+    public static AndWhere create(){
+        return new AndWhere();
+    }
+
     public AndWhere and(@NonNull IWhere w){
         if(!TextUtils.isEmpty(w.getSelection())){
             wheres.add(w);

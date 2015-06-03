@@ -35,4 +35,8 @@ public class LogUtil {
             Log.e(cls.getName(), "CsqDownMng --> " + info);
         }
     }
+
+    public static void printException(@NonNull Class cls, @NonNull Throwable info){
+        Log.e(cls.getName(), "CsqDownMng --> Exception : " + info.fillInStackTrace().toString());
+    }
 }
