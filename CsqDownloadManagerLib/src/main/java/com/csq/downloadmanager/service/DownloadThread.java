@@ -63,8 +63,6 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
     public void run() {
         android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
 
-        int finalStatus = DownloadInfo.StatusFailedUnknownError;
-
         try {
             checkWhetherCanceled();
 
