@@ -112,7 +112,7 @@ public class DownloadInfo implements java.io.Serializable {
     /**
      * 文件总大小
      */
-    private long totalBytes;
+    private int totalBytes;
     /**
      * 当前下载的各段文件大小
      */
@@ -262,11 +262,11 @@ public class DownloadInfo implements java.io.Serializable {
         return this;
     }
 
-    public long getTotalBytes() {
+    public int getTotalBytes() {
         return totalBytes;
     }
 
-    public DownloadInfo setTotalBytes(long totalBytes) {
+    public DownloadInfo setTotalBytes(int totalBytes) {
         this.totalBytes = totalBytes;
         return this;
     }
@@ -278,6 +278,10 @@ public class DownloadInfo implements java.io.Serializable {
 
     public DownloadedBytes getCurrentBytes() {
         return currentBytes;
+    }
+
+    public int getSingleThreadLength(){
+        return getTotalBytes()/getThreadNum();
     }
 
     public float getProgress(){
@@ -368,6 +372,11 @@ public class DownloadInfo implements java.io.Serializable {
         return status >= StatusSuccessed;
     }
 
+    public boolean isDownloadSuccessed(){
+        return status == StatusSuccessed ||
+                (totalBytes > 0 && currentBytes.getAllDownloadedBytes() >= totalBytes);
+    }
+
     public ContentValues toContentValues() {
         ContentValues cv = new ContentValues();
         DbUtil.putIfNonNull(cv, Downloads.ColumnFileName, fileName);
@@ -392,11 +401,18 @@ public class DownloadInfo implements java.io.Serializable {
     }
 
     /**
-     * 返回临时下载某段文件路径，eg:/mnt/sdcard/CsqDownload/.a.txt.0_3
+     * 返回下载中的文件路径，eg:/mnt/sdcard/CsqDownload/.a.txt
+     * 下载成功之后重命名为{@link #getDestFilePath()}
      */
-    public String getTempFilePath(int index){
-        return DownloadConfiger.getDefaultDownloadPath() + File.separator
-                + "." + fileName + "." + index + "_" + getThreadNum();
+    public String getTempFilePath(){
+        return getFolderPath() + File.separator + "." + fileName;
+    }
+
+    /**
+     * 返回临时下载某段文件路径，eg:/mnt/sdcard/CsqDownload/a.txt
+     */
+    public String getDestFilePath(){
+        return getFolderPath() + File.separator + fileName;
     }
 
     /*@StringRes
@@ -467,6 +483,10 @@ public class DownloadInfo implements java.io.Serializable {
             } catch (JSONException e) {
                 e.printStackTrace();
             }
+        }
+
+        public int getSectionBytes(int index){
+            return allBytes.optInt(getIndexKey(index), 0);
         }
 
         public int getAllDownloadedBytes(){

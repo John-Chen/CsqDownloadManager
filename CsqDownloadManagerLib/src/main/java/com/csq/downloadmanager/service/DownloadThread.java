@@ -6,10 +6,12 @@
 package com.csq.downloadmanager.service;
 
 import android.content.Context;
+import android.os.PowerManager;
 import android.os.Process;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
+import android.util.SparseArray;
 import android.webkit.URLUtil;
 import com.csq.downloadmanager.SystemFacade;
 import com.csq.downloadmanager.configer.DownloadConfiger;
@@ -22,11 +24,15 @@ import com.csq.downloadmanager.util.Helpers;
 import com.csq.downloadmanager.util.LogUtil;
 import com.csq.downloadmanager.util.StorageUtil;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -44,7 +50,8 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
     public final SystemFacade systemFacade;
     public boolean isCanceled = false;
 
-    private HttpURLConnection connection;
+    private final List<DownloadTask> taskList = new ArrayList<>();
+    private final SparseArray<Integer> taskResults = new SparseArray<>();
 
     // ----------------------- Constructors ----------------------
 
@@ -63,7 +70,13 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
     public void run() {
         android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
 
+        PowerManager.WakeLock wakeLock = ((PowerManager) context.getSystemService(Context.POWER_SERVICE))
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "CsqDownMng");
+
+        HttpURLConnection connection = null;
         try {
+            wakeLock.acquire();
+
             checkWhetherCanceled();
 
             //检测网络连接
@@ -120,6 +133,8 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                 if(index > 0){
                     downloadInfo.setFileName(name + "(" + index + ")");
                 }
+                //删除已下载的文件
+                new File(downloadInfo.getTempFilePath()).deleteOnExit();
             }
 
             //文件长度
@@ -147,7 +162,7 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                 //清除下载记录，重新下载
                 downloadInfo.getCurrentBytes().clear();
                 //删除已下载的文件
-                new File(downloadInfo.getTempFilePath(0)).deleteOnExit();
+                new File(downloadInfo.getTempFilePath()).deleteOnExit();
             }
 
             //更新ETag
@@ -163,18 +178,59 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                 //清除下载记录，重新下载
                 downloadInfo.getCurrentBytes().clear();
                 //删除已下载的文件
-                new File(downloadInfo.getTempFilePath(0)).deleteOnExit();
+                new File(downloadInfo.getTempFilePath()).deleteOnExit();
             }
 
             //更新数据库
-            DownloadInfoDao.getInstace(context).updateDownload(downloadInfo);
+            DownloadInfoDao.getInstace(context).updateDownload(
+                    UpdateCondition.create()
+                            .addColumn(Downloads.ColumnReDirectUrl, downloadInfo.getReDirectUrl())
+                            .addColumn(Downloads.ColumnMimeType, downloadInfo.getMimeType())
+                            .addColumn(Downloads.ColumnFileName, downloadInfo.getFileName())
+                            .addColumn(Downloads.ColumnTotalBytes, downloadInfo.getTotalBytes())
+                            .addColumn(Downloads.ColumnCurrentBytes, downloadInfo.getCurrentBytes().toDbJsonString())
+                            .addColumn(Downloads.ColumnIsOnlyWifi, downloadInfo.getIsOnlyWifi())
+                            .addColumn(Downloads.ColumnThreadNum, downloadInfo.getThreadNum())
+                            .addColumn(Downloads.ColumnETag, downloadInfo.getETag())
+                            .setWhere(new Where().eq(Downloads.ColumnID, downloadInfo.getId())));
 
             //断开连接
             connection.disconnect();
             connection = null;
 
             //开始多线程下载
+            DownloadTask task = null;
+            for(int i = 0; i < downloadInfo.getThreadNum(); i++){
+                task = new DownloadTask(downloadInfo, i);
+                taskList.add(task);
+                systemFacade.startThread(task);
+            }
+            while (!taskList.isEmpty()
+                    && isCanceled
+                    && taskResults.size() < taskList.size()){
+                synchronized (taskResults){
+                    taskResults.wait();
+                }
+            }
+            //分段下载完全
+            if(!isCanceled){
+                int status = DownloadInfo.StatusSuccessed;
+                for(int i = 0; i < downloadInfo.getThreadNum(); i++){
+                    int result = taskResults.get(i);
+                    if(result != DownloadInfo.StatusSuccessed){
+                        //如果有下载失败的，直接取第一个失败的错误状态吧
+                        status = result;
+                        break;
+                    }
+                }
 
+                if(status == DownloadInfo.StatusSuccessed
+                        && new File(downloadInfo.getTempFilePath())
+                            .renameTo(new File(downloadInfo.getDestFilePath()))){
+                    //noinspection ResourceType
+                    downloadInfo.setStatus(status);
+                }
+            }
 
         } catch (MalformedURLException e) {
             LogUtil.printException(DownloadThread.class, e);
@@ -193,14 +249,43 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                 connection.disconnect();
             }
 
-            DownloadInfoDao.getInstace(context).updateDownload(downloadInfo);
-        }
+            if(isCanceled && !downloadInfo.isDownloadSuccessed()){
+                downloadInfo.setStatus(DownloadInfo.StatusFailedCanceled);
+            }
 
+            DownloadInfoDao.getInstace(context).updateDownload(
+                    UpdateCondition.create()
+                            .addColumn(Downloads.ColumnStatus, downloadInfo.getStatus())
+                            .addColumn(Downloads.ColumnReDirectUrl, downloadInfo.getReDirectUrl())
+                            .addColumn(Downloads.ColumnMimeType, downloadInfo.getMimeType())
+                            .addColumn(Downloads.ColumnFileName, downloadInfo.getFileName())
+                            .addColumn(Downloads.ColumnTotalBytes, downloadInfo.getTotalBytes())
+                            .addColumn(Downloads.ColumnCurrentBytes, downloadInfo.getCurrentBytes().toDbJsonString())
+                            .addColumn(Downloads.ColumnIsOnlyWifi, downloadInfo.getIsOnlyWifi())
+                            .addColumn(Downloads.ColumnThreadNum, downloadInfo.getThreadNum())
+                            .addColumn(Downloads.ColumnETag, downloadInfo.getETag())
+                            .addColumn(Downloads.ColumnRetryAfterTime, downloadInfo.getRetryAfterTime())
+                            .setWhere(new Where().eq(Downloads.ColumnID, downloadInfo.getId())));
+
+            wakeLock.release();
+        }
     }
 
     @Override
     public void cancel() {
         isCanceled = true;
+
+        if(!taskList.isEmpty()){
+            for(DownloadTask t : taskList){
+                t.cancel();
+            }
+
+            synchronized (taskResults){
+                taskResults.notify();
+            }
+        }
+
+        LogUtil.w(DownloadThread.class, "Thread canceled");
     }
 
     // --------------------- Methods public ----------------------
@@ -393,6 +478,107 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
         public StopRequest(int finalStatus, String message, Throwable throwable) {
             super(message, throwable);
             mFinalStatus = finalStatus;
+        }
+    }
+
+    private class DownloadTask implements Runnable, DownloadService.Cancelable{
+
+        private final DownloadInfo downloadInfo;
+        private final int index;
+
+        private InputStream inputStream;
+        private RandomAccessFile randomAccessFile;
+        private int curByte, endByte;
+
+        public DownloadTask(@NonNull DownloadInfo downloadInfo,
+                            int index) {
+            this.downloadInfo = downloadInfo;
+            this.index = index;
+            try {
+                randomAccessFile = new RandomAccessFile(downloadInfo.getTempFilePath(), "rw");
+            } catch (FileNotFoundException e) {
+                LogUtil.printException(getClass(), e);
+            }
+        }
+
+        @Override
+        public void run() {
+            int status = DownloadInfo.StatusFailedUnknownError;
+
+            HttpURLConnection connection = null;
+            try {
+                checkWhetherCanceled();
+
+                int singleLength = downloadInfo.getSingleThreadLength(); //maybe 0
+                int sectionStart = singleLength * index;
+
+                curByte = sectionStart + downloadInfo.getCurrentBytes().getSectionBytes(index);
+                endByte = singleLength * (index+1);
+                LogUtil.d(getClass(), "DownloadTask byteRange : " + curByte + " --> " + endByte);
+
+                if(downloadInfo.getTotalBytes() < 1 || curByte < endByte){
+                    connection = getConnection(downloadInfo.getReDirectUrl(), curByte, endByte);
+                    connection.connect();
+
+                    inputStream = connection.getInputStream();
+
+                    byte[] buffer = new byte[4096];
+                    int byteReaded = inputStream.read(buffer);
+                    while (!isCanceled && byteReaded > 0){
+                        randomAccessFile.seek(curByte);
+                        randomAccessFile.write(buffer, 0, byteReaded);
+                        curByte += byteReaded;
+                        downloadInfo.getCurrentBytes().updateSectionBytes(index, curByte - sectionStart);
+                        byteReaded = inputStream.read(buffer);
+                    }
+                }
+
+                if(!isCanceled){
+                    status = DownloadInfo.StatusSuccessed;
+                }
+
+            } catch (StopRequest e){
+                status = e.mFinalStatus;
+                LogUtil.printException(getClass(), e);
+            } catch (IOException e) {
+                status = DownloadInfo.StatusFailedOtherException;
+                LogUtil.printException(getClass(), e);
+            } catch (Exception e){
+                status = DownloadInfo.StatusFailedOtherException;
+                LogUtil.printException(getClass(), e);
+            } finally {
+                if(inputStream != null){
+                    try {
+                        inputStream.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                if(connection != null){
+                    connection.disconnect();
+                }
+
+                synchronized (taskResults){
+                    taskResults.put(index, status);
+                    taskResults.notify();
+                }
+
+                LogUtil.d(getClass(), "DownloadTask finish " + status);
+            }
+
+        }
+
+
+        @Override
+        public void cancel() {
+            if(inputStream != null){
+                try {
+                    inputStream.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
