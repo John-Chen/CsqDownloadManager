@@ -90,7 +90,7 @@ public class DbUtil {
             stmt.bindString(11, mimeType);
         }
 
-        Long totalBytes = entity.getTotalBytes();
+        Integer totalBytes = entity.getTotalBytes();
         if (totalBytes != null) {
             stmt.bindLong(12, totalBytes);
         }
@@ -147,7 +147,7 @@ public class DbUtil {
                 .setIsOnlyWifi(cursor.getInt(cursor.getColumnIndex(Downloads.ColumnIsOnlyWifi)) == 1)
                 .setIsAllowRoaming(cursor.getInt(cursor.getColumnIndex(Downloads.ColumnIsAllowRoaming)) == 1)
                 .setMimeType(cursor.getString(cursor.getColumnIndex(Downloads.ColumnMimeType)))
-                .setTotalBytes(cursor.getLong(cursor.getColumnIndex(Downloads.ColumnTotalBytes)))
+                .setTotalBytes(cursor.getInt(cursor.getColumnIndex(Downloads.ColumnTotalBytes)))
                 .setCurrentBytes(cursor.getString(cursor.getColumnIndex(Downloads.ColumnCurrentBytes)))
                 .setReDirectUrl(cursor.getString(cursor.getColumnIndex(Downloads.ColumnReDirectUrl)))
                 .setETag(cursor.getString(cursor.getColumnIndex(Downloads.ColumnETag)))
@@ -169,7 +169,7 @@ public class DbUtil {
                 .setIsOnlyWifi(cursor.getInt(cursor.getColumnIndex(Downloads.ColumnIsOnlyWifi)) == 1)
                 .setIsAllowRoaming(cursor.getInt(cursor.getColumnIndex(Downloads.ColumnIsAllowRoaming)) == 1)
                 .setMimeType(cursor.getString(cursor.getColumnIndex(Downloads.ColumnMimeType)))
-                .setTotalBytes(cursor.getLong(cursor.getColumnIndex(Downloads.ColumnTotalBytes)))
+                .setTotalBytes(cursor.getInt(cursor.getColumnIndex(Downloads.ColumnTotalBytes)))
                 .setCurrentBytes(cursor.getString(cursor.getColumnIndex(Downloads.ColumnCurrentBytes)))
                 .setReDirectUrl(cursor.getString(cursor.getColumnIndex(Downloads.ColumnReDirectUrl)))
                 .setETag(cursor.getString(cursor.getColumnIndex(Downloads.ColumnETag)))

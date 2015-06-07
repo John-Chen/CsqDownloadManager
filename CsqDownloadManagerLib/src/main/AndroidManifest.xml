@@ -1,14 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.csq.downloadmanager">
+    package="com.csq.downloadmanager" >
 
     <uses-sdk
         android:minSdkVersion="9"
         android:targetSdkVersion="21"
         />
 
-    <application android:allowBackup="true"
-                 android:label="@string/app_name"
-        >
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+    <application
+        android:allowBackup="true"
+        android:label="@string/app_name" >
+
+        <activity
+            android:name=".DownloadListActivity"
+            android:label="@string/title_activity_download_list"
+            android:launchMode="singleInstance">
+            <intent-filter>
+                <action android:name="com.csq.downloadmanager.DownloadListActivity"/>
+            </intent-filter>
+        </activity>
 
     </application>
 

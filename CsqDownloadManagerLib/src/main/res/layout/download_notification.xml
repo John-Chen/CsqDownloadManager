@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:background="@android:color/black"
+                >
+
+    <ImageView
+        android:id="@+id/ivIcon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="12dp"
+        android:src="@mipmap/app_icon"
+        android:scaleType="centerInside"
+        />
+
+    <TextView
+        android:id="@+id/tvName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@+id/ivIcon"
+        android:layout_marginLeft="12dp"
+        android:layout_marginRight="12dp"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="Medium Text"/>
+
+    <ProgressBar
+        android:id="@+id/pbProgress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:minHeight="32dp"
+        android:maxHeight="32dp"
+        android:layout_toRightOf="@+id/ivIcon"
+        android:layout_below="@+id/tvName"
+        android:layout_marginLeft="12dp"
+        android:layout_marginRight="12dp"
+        android:layout_marginTop="6dp"
+        android:progressDrawable="@drawable/progressbar_style"
+        android:max="100"
+        android:progress="50"
+        />
+
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@+id/ivIcon"
+        android:layout_marginLeft="12dp"
+        android:layout_marginRight="12dp"
+        android:layout_alignTop="@+id/pbProgress"
+        android:layout_alignBottom="@+id/pbProgress"
+        android:gravity="center"
+        android:textColor="@android:color/white"
+        android:textSize="18dp"
+        android:text="4M/8M"/>
+
+</RelativeLayout>

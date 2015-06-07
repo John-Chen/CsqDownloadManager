@@ -77,7 +77,6 @@ public class DownloadService extends Service {
         getContentResolver().registerContentObserver(
                 Downloads.CONTENT_URI, true, mObserver);
 
-        mNotifier = new DownloadNotification(this, mSystemFacade);
         mSystemFacade.cancelAllNotifications();
 
         updateFromProvider();

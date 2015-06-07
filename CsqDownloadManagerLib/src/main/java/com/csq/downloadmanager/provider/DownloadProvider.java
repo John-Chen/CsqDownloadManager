@@ -15,7 +15,10 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
 import android.text.TextUtils;
+
+import com.csq.downloadmanager.configer.DownloadConfiger;
 import com.csq.downloadmanager.db.DownloadOpenHelper;
+import com.csq.downloadmanager.db.query.Where;
 import com.csq.downloadmanager.util.Helpers;
 import com.csq.downloadmanager.util.TableUtil;
 import com.csq.downloadmanager.service.DownloadService;
@@ -93,6 +96,7 @@ public class DownloadProvider extends ContentProvider {
 
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
 
+        values.put(Downloads.ColumnLastModifyTime, System.currentTimeMillis());
         long rowID = db.insert(TableUtil.TABLE_NAME, null, values);
         if (rowID == -1) {
             LogUtil.d(DownloadProvider.class, "couldn't insert into downloads database");
@@ -102,6 +106,7 @@ public class DownloadProvider extends ContentProvider {
         getContext().startService(new Intent(getContext(), DownloadService.class));
 
         notifyChange(uri, match);
+        DownloadConfiger.EventDispatcher.downloadInfoAdded(getContext(), new long[]{rowID});
 
         return ContentUris.withAppendedId(Downloads.CONTENT_URI, rowID);
     }
@@ -110,29 +115,25 @@ public class DownloadProvider extends ContentProvider {
     public int delete(Uri uri,
                       String selection,
                       String[] selectionArgs) {
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
-        int count = 0;
-        int match = sURIMatcher.match(uri);
-        switch (match) {
-            case MatchCode:
-                count = db.delete(TableUtil.TABLE_NAME,
-                        selection,
-                        selectionArgs);
-                break;
+        LogUtil.d(DownloadProvider.class, "delete uri = " + uri.toString() + ", "
+            + "selection = " + selection + ", "
+            + "selectionArgs = " + selectionArgs);
 
-            case MatchCodeItem:
-                String rowId = getDownloadIdFromUri(uri);
-                count = db.delete(TableUtil.TABLE_NAME,
-                        Downloads.ColumnID + "=" + rowId + (selection.length() > 0 ? " AND (" + selection + ")" : ""),
-                        selectionArgs);
-                break;
-
-            default:
-                LogUtil.d(DownloadProvider.class, "deleting unknown/invalid URI: " + uri);
-                throw new UnsupportedOperationException("Cannot delete URI: " + uri);
+        long[] ids = queryIds(uri,
+                selection,
+                selectionArgs);
+        if(ids == null || ids.length < 1){
+            return 0;
         }
 
+        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        String ws = Where.create().in(Downloads.ColumnID, ids).getSelection();
+        int count = db.delete(TableUtil.TABLE_NAME, ws, null);
+
+        int match = sURIMatcher.match(uri);
         notifyChange(uri, match);
+
+        DownloadConfiger.EventDispatcher.downloadInfoRemoved(getContext(), ids);
 
         return count;
     }
@@ -142,36 +143,34 @@ public class DownloadProvider extends ContentProvider {
                       ContentValues values,
                       String selection,
                       String[] selectionArgs) {
-        int count = 0;
+        LogUtil.d(DownloadProvider.class, "update uri = " + uri.toString() + ", "
+                + "values = " + values.toString()
+                + "selection = " + selection + ", "
+                + "selectionArgs = " + selectionArgs);
 
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
-
-        int match = sURIMatcher.match(uri);
-        switch (match) {
-            case MatchCode:
-                count = db.update(TableUtil.TABLE_NAME,
-                        values,
-                        selection,
-                        selectionArgs);
-                break;
-
-            case MatchCodeItem:
-                String rowId = getDownloadIdFromUri(uri);
-                count = db.update(TableUtil.TABLE_NAME,
-                        values,
-                        Downloads.ColumnID + "=" + rowId + (selection.length() > 0 ? " AND (" + selection + ")" : ""),
-                        selectionArgs);
-                break;
-
-            default:
-                LogUtil.d(DownloadProvider.class, "updating unknown/invalid URI: " + uri);
-                throw new UnsupportedOperationException("Cannot update URI: " + uri);
+        long[] ids = queryIds(uri,
+                selection,
+                selectionArgs);
+        if(ids == null || ids.length < 1){
+            return 0;
         }
 
+        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        values.put(Downloads.ColumnLastModifyTime, System.currentTimeMillis());
+        String ws = Where.create().in(Downloads.ColumnID, ids).getSelection();
+        int count = db.update(TableUtil.TABLE_NAME,
+                values,
+                ws,
+                null);
+
+        int match = sURIMatcher.match(uri);
         notifyChange(uri, match);
+
         if (values.containsKey(Downloads.ColumnStatus)) {
             getContext().startService(new Intent(getContext(), DownloadService.class));
         }
+
+        DownloadConfiger.EventDispatcher.downloadInfoChanged(getContext(), ids, values);
 
         return count;
     }
@@ -182,6 +181,11 @@ public class DownloadProvider extends ContentProvider {
                         String selection,
                         String[] selectionArgs,
                         String sortOrder) {
+
+        LogUtil.d(DownloadProvider.class, "query uri = " + uri.toString() + ", "
+                + "selection = " + selection + ", "
+                + "selectionArgs = " + selectionArgs + ", "
+                + "sortOrder = " + sortOrder);
 
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
 
@@ -236,6 +240,21 @@ public class DownloadProvider extends ContentProvider {
         }
         getContext().getContentResolver().notifyChange(
                 ContentUris.withAppendedId(Downloads.CONTENT_URI, downId), null);
+    }
+
+    private long[] queryIds(Uri uri,
+                            String selection,
+                            String[] selectionArgs){
+        Cursor cursor = query(uri, new String[]{Downloads.ColumnID}, selection, selectionArgs, null);
+        if(cursor == null || cursor.getCount() < 1){
+            return null;
+        }
+        long[] ids = new long[cursor.getCount()];
+        int i = 0;
+        for (cursor.moveToFirst(); !cursor.isAfterLast(); cursor.moveToNext()){
+            ids[i++] = cursor.getLong(0);
+        }
+        return ids;
     }
 
     // --------------------- Getter & Setter -----------------

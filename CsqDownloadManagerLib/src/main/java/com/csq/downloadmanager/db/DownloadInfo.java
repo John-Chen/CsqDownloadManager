@@ -6,6 +6,11 @@
 package com.csq.downloadmanager.db;
 
 import android.content.ContentValues;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.net.Uri;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -401,6 +406,78 @@ public class DownloadInfo implements java.io.Serializable {
     }
 
     /**
+     * 接收到EventDispatcher下发的数据改变事件后，将改变的数据更新到某个DownloadInfo
+     * {@link com.csq.downloadmanager.dispatcher.EventDispatcher#downloadInfoChanged(Context,ContentValues)}
+     * @param updatedContentValues 收到的EventValueUpdatedContentValues事件数据
+     */
+    public void updateByUpdatedContentValues(ContentValues updatedContentValues){
+        if(updatedContentValues.containsKey(Downloads.ColumnFileName)){
+            fileName = updatedContentValues.getAsString(Downloads.ColumnFileName);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnDescription)){
+            description = updatedContentValues.getAsString(Downloads.ColumnDescription);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnFolderPath)){
+            folderPath = updatedContentValues.getAsString(Downloads.ColumnFolderPath);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnGroupName)){
+            groupName = updatedContentValues.getAsString(Downloads.ColumnGroupName);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnIsShowNotification)){
+            isShowNotification = updatedContentValues.getAsBoolean(Downloads.ColumnIsShowNotification);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnIsOnlyWifi)){
+            isOnlyWifi = updatedContentValues.getAsBoolean(Downloads.ColumnIsOnlyWifi);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnIsAllowRoaming)){
+            isAllowRoaming = updatedContentValues.getAsBoolean(Downloads.ColumnIsAllowRoaming);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnMimeType)){
+            mimeType = updatedContentValues.getAsString(Downloads.ColumnMimeType);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnTotalBytes)){
+            totalBytes = updatedContentValues.getAsInteger(Downloads.ColumnTotalBytes);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnCurrentBytes)){
+            currentBytes.update(updatedContentValues.getAsString(Downloads.ColumnCurrentBytes));
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnLastModifyTime)){
+            lastModifyTime = updatedContentValues.getAsLong(Downloads.ColumnLastModifyTime);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnStatus)){
+            //noinspection ResourceType
+            status = updatedContentValues.getAsInteger(Downloads.ColumnStatus);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnRetryAfterTime)){
+            retryAfterTime = updatedContentValues.getAsLong(Downloads.ColumnRetryAfterTime);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnThreadNum)){
+            threadNum = updatedContentValues.getAsInteger(Downloads.ColumnThreadNum);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnETag)){
+            eTag = updatedContentValues.getAsString(Downloads.ColumnETag);
+        }
+
+        if(updatedContentValues.containsKey(Downloads.ColumnNumFailed)){
+            numFailed = updatedContentValues.getAsInteger(Downloads.ColumnNumFailed);
+        }
+    }
+
+    /**
      * 返回下载中的文件路径，eg:/mnt/sdcard/CsqDownload/.a.txt
      * 下载成功之后重命名为{@link #getDestFilePath()}
      */
@@ -415,42 +492,26 @@ public class DownloadInfo implements java.io.Serializable {
         return getFolderPath() + File.separator + fileName;
     }
 
-    /*@StringRes
-    public int getErrorMessageStringResId(){
-        int errorCode = getErrorCode();
-        int ret = R.string.error_message_empty;
-        switch(errorCode){
-            case ErrorCodeStorageNotEnough:
-                ret = R.string.error_message_storage_not_enough;
-                break;
-
-            case ErrorCodeSdcardUnmounted:
-                ret = R.string.error_message_sdcard_unmounted;
-                break;
-
-            case ErrorCodeNetworkBlocked:
-                ret = R.string.error_message_network_blocked;
-                break;
-
-            case ErrorCodeOnlyWifi:
-                ret = R.string.error_message_only_wifi;
-                break;
-
-            case ErrorCodeIsRoaming:
-                ret = R.string.error_message_is_roaming;
-                break;
-
-            default:
-                break;
+    @Nullable
+    public Intent getMimeTypeHandleIntent(Context context){
+        if(TextUtils.isEmpty(mimeType)){
+            return null;
         }
-        return ret;
-    }*/
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        PackageManager pm = context.getPackageManager();
+        intent.setDataAndType(Uri.fromParts("file", "", null), mimeType);
+        ResolveInfo ri = pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
+        if(ri != null) {
+            return intent;
+        }
+        return null;
+    }
 
     public class DownloadedBytes{
 
         public JSONObject allBytes = new JSONObject();
 
-        public void update(@Nullable String dbJsonString){
+        public synchronized void update(@Nullable String dbJsonString){
             allBytes = new JSONObject();
             if(!TextUtils.isEmpty(dbJsonString)){
                 JSONObject jo = null;
@@ -477,7 +538,7 @@ public class DownloadInfo implements java.io.Serializable {
             update(null);
         }
 
-        public void updateSectionBytes(int index, int bytes){
+        public synchronized void updateSectionBytes(int index, int bytes){
             try {
                 allBytes.put(getIndexKey(index), bytes);
             } catch (JSONException e) {
@@ -485,11 +546,11 @@ public class DownloadInfo implements java.io.Serializable {
             }
         }
 
-        public int getSectionBytes(int index){
+        public synchronized int getSectionBytes(int index){
             return allBytes.optInt(getIndexKey(index), 0);
         }
 
-        public int getAllDownloadedBytes(){
+        public synchronized int getAllDownloadedBytes(){
             int all = 0;
             for(int i = 0; i < threadNum; i++){
                 all += allBytes.optInt(getIndexKey(i), 0);
@@ -500,7 +561,7 @@ public class DownloadInfo implements java.io.Serializable {
         /**
          * 通过json保存
          */
-        public String toDbJsonString(){
+        public synchronized String toDbJsonString(){
             return allBytes.toString();
         }
 

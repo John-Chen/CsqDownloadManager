@@ -19,6 +19,7 @@ import com.csq.downloadmanager.db.DownloadInfo;
 import com.csq.downloadmanager.db.DownloadInfoDao;
 import com.csq.downloadmanager.db.query.Where;
 import com.csq.downloadmanager.db.update.UpdateCondition;
+import com.csq.downloadmanager.notification.DownloadNotification;
 import com.csq.downloadmanager.provider.Downloads;
 import com.csq.downloadmanager.util.Helpers;
 import com.csq.downloadmanager.util.LogUtil;
@@ -45,10 +46,11 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
 
 
     // ------------------------- Fields --------------------------
-    public final Context context;
-    public final DownloadInfo downloadInfo;
-    public final SystemFacade systemFacade;
-    public boolean isCanceled = false;
+    private final Context context;
+    private final DownloadInfo downloadInfo;
+    private final SystemFacade systemFacade;
+    private final DownloadNotification downloadNotification;
+    private boolean isCanceled = false;
 
     private final List<DownloadTask> taskList = new ArrayList<>();
     private final SparseArray<Integer> taskResults = new SparseArray<>();
@@ -61,6 +63,7 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
         this.context = context;
         this.downloadInfo = downloadInfo;
         this.systemFacade = systemFacade;
+        downloadNotification = new DownloadNotification(context);
     }
 
 
@@ -94,6 +97,7 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                     UpdateCondition.create()
                             .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusDowning)
                             .setWhere(new Where().eq(Downloads.ColumnID, downloadInfo.getId())));
+            downloadNotification.update(systemFacade, downloadInfo);
 
             //更新重定向地址，没有的话reDirectUrl=url
             downloadInfo.setReDirectUrl(getRedirectUrl(downloadInfo.getUrl(), 0));
@@ -193,6 +197,7 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                             .addColumn(Downloads.ColumnThreadNum, downloadInfo.getThreadNum())
                             .addColumn(Downloads.ColumnETag, downloadInfo.getETag())
                             .setWhere(new Where().eq(Downloads.ColumnID, downloadInfo.getId())));
+            downloadNotification.update(systemFacade, downloadInfo);
 
             //断开连接
             connection.disconnect();
@@ -266,6 +271,7 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                             .addColumn(Downloads.ColumnETag, downloadInfo.getETag())
                             .addColumn(Downloads.ColumnRetryAfterTime, downloadInfo.getRetryAfterTime())
                             .setWhere(new Where().eq(Downloads.ColumnID, downloadInfo.getId())));
+            downloadNotification.update(systemFacade, downloadInfo);
 
             wakeLock.release();
         }
@@ -459,6 +465,32 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
         }
     }
 
+    private volatile int lastUpdateByte = 0;
+    private volatile long lastUpdateTime = 0;
+    private volatile int lastUpdateProgress = 0;
+    /**
+     * 更新数据库下载大小、广播通知
+     */
+    private void updateDbProgress(){
+        synchronized (downloadInfo){
+            long thisTime = System.currentTimeMillis();
+            int thisByte = downloadInfo.getCurrentBytes().getAllDownloadedBytes();
+            int thisProgress = (int) (downloadInfo.getProgress()*100);
+            if(thisTime - lastUpdateTime >= 1000
+                    || thisByte - lastUpdateByte > 128*1024
+                    || thisProgress != lastUpdateProgress){
+                //间隔1秒、下载128kb、进度+1/100
+                //更新进度
+                DownloadInfoDao.getInstace(context).updateDownload(
+                        UpdateCondition.create()
+                                .addColumn(Downloads.ColumnCurrentBytes, downloadInfo.getCurrentBytes().toDbJsonString())
+                                .setWhere(new Where().eq(Downloads.ColumnID, downloadInfo.getId())));
+                //更新Notification
+                downloadNotification.update(systemFacade, downloadInfo);
+            }
+        }
+    }
+
     // --------------------- Getter & Setter -----------------
 
 
@@ -486,6 +518,7 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
         private final DownloadInfo downloadInfo;
         private final int index;
 
+        private HttpURLConnection connection = null;
         private InputStream inputStream;
         private RandomAccessFile randomAccessFile;
         private int curByte, endByte;
@@ -505,7 +538,6 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
         public void run() {
             int status = DownloadInfo.StatusFailedUnknownError;
 
-            HttpURLConnection connection = null;
             try {
                 checkWhetherCanceled();
 
@@ -529,6 +561,7 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                         randomAccessFile.write(buffer, 0, byteReaded);
                         curByte += byteReaded;
                         downloadInfo.getCurrentBytes().updateSectionBytes(index, curByte - sectionStart);
+                        updateDbProgress();
                         byteReaded = inputStream.read(buffer);
                     }
                 }
@@ -550,6 +583,14 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                 if(inputStream != null){
                     try {
                         inputStream.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                if(randomAccessFile != null){
+                    try {
+                        randomAccessFile.close();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -579,7 +620,11 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                     e.printStackTrace();
                 }
             }
+            if(connection != null){
+                connection.disconnect();
+            }
         }
+
     }
 
 
