@@ -5,21 +5,29 @@
  */
 package com.csq.downloadmanager.service;
 
-import android.app.AlarmManager;
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.database.ContentObserver;
-import android.database.Cursor;
-import android.os.*;
-import android.os.Process;
+import android.os.Handler;
+import android.os.IBinder;
 import com.csq.downloadmanager.SystemFacade;
+import com.csq.downloadmanager.configer.DownloadConfiger;
 import com.csq.downloadmanager.db.DownloadInfo;
+import com.csq.downloadmanager.db.DownloadInfoDao;
+import com.csq.downloadmanager.db.query.AndWhere;
+import com.csq.downloadmanager.db.query.IWhere;
+import com.csq.downloadmanager.db.query.Where;
+import com.csq.downloadmanager.db.update.UpdateCondition;
 import com.csq.downloadmanager.provider.Downloads;
 import com.csq.downloadmanager.util.LogUtil;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DownloadService extends Service {
 
@@ -30,25 +38,31 @@ public class DownloadService extends Service {
     // ------------------------- Fields --------------------------
 
     /**
-     * Observer to get notified when the content observer's data changes
+     * 监听数据库改变
      */
     private DownloadManagerContentObserver mObserver;
 
     /**
-     * Whether the internal download list should be updated from the content
-     * provider.
+     * 是否在检测数据库更新信息
      */
-    private boolean isUpdating;
-
+    private final AtomicBoolean isUpdating = new AtomicBoolean(false);
     /**
-     * The thread that updates the internal download list from the content
-     * provider.
+     * 是否有更新请求
      */
-    private UpdateThread mUpdateThread;
+    private final AtomicBoolean isHaveUpdateRequest = new AtomicBoolean(false);
+    /**
+     * 保持一个更新线程
+     */
+    private final ExecutorService mUpdateExecutorService = Executors.newSingleThreadExecutor();
 
     private SystemFacade mSystemFacade;
+    private DownloadInfoDao dao;
 
 
+    /**
+     * 正在下载的任务，key--DownloadInfo.id
+     */
+    private static final ConcurrentHashMap<Long, DownloadThread> downingThreads = new ConcurrentHashMap<>(4);
 
 
     // ----------------------- Constructors ----------------------
@@ -77,6 +91,8 @@ public class DownloadService extends Service {
         getContentResolver().registerContentObserver(
                 Downloads.CONTENT_URI, true, mObserver);
 
+        dao = DownloadInfoDao.getInstace(getApplication());
+
         mSystemFacade.cancelAllNotifications();
 
         updateFromProvider();
@@ -101,6 +117,14 @@ public class DownloadService extends Service {
 
     // --------------------- Methods public ----------------------
 
+    public static void startService(Context context){
+        context.startService(new Intent(context, DownloadService.class));
+    }
+
+    public static DownloadThread downloadThreadFinished(long downloadId){
+        return downingThreads.remove(downloadId);
+    }
+
 
     // --------------------- Methods private ---------------------
 
@@ -108,13 +132,11 @@ public class DownloadService extends Service {
      * Parses data from the content provider into private array
      */
     private void updateFromProvider() {
-        synchronized (this) {
-            isUpdating = true;
-            if (mUpdateThread == null) {
-                mUpdateThread = new UpdateThread();
-                mUpdateThread.start();
-            }
+        if(isUpdating.get()){
+            isHaveUpdateRequest.set(true);
+            return;
         }
+        mUpdateExecutorService.execute(new UpdateThread());
     }
 
     // --------------------- Getter & Setter -----------------
@@ -142,130 +164,129 @@ public class DownloadService extends Service {
 
     }
 
-    private class UpdateThread extends Thread {
-        public UpdateThread() {
-            super("Download Service");
-        }
-
+    private class UpdateThread implements Runnable {
+        @Override
         public void run() {
-            android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+            LogUtil.d(DownloadService.class, "UpdateThread start");
+            isUpdating.set(true);
+            isHaveUpdateRequest.set(false);
 
-            trimDatabase();
-            removeSpuriousFiles();
-
-            boolean keepService = false;
-            // for each update from the database, remember which download is
-            // supposed to get restarted soonest in the future
-            long wakeUp = Long.MAX_VALUE;
-            for (; ; ) {
-                synchronized (DownloadService.this) {
-                    if (mUpdateThread != this) {
-                        throw new IllegalStateException(
-                                "multiple UpdateThreads in DownloadService");
-                    }
-                    if (!isUpdating) {
-                        mUpdateThread = null;
-                        if (!keepService) {
-                            stopSelf();
+            try {
+                //删除或暂停的
+                synchronized (downingThreads){
+                    if(!downingThreads.isEmpty()){
+                        List<DownloadInfo> downingDbs = dao.queryDownloadInfos(Where.create().in(Downloads.ColumnID, downingThreads.keySet()), null);
+                        for(Map.Entry<Long, DownloadThread> entry : downingThreads.entrySet()){
+                            DownloadInfo db = null;
+                            for(DownloadInfo di : downingDbs){
+                                if(di.getId() == entry.getKey()){
+                                    db = di;
+                                    break;
+                                }
+                            }
+                            if(db == null){
+                                //deleted, cancel Thread
+                                entry.getValue().cancel();
+                            }else{
+                                if(db.isPaused()){
+                                    entry.getValue().cancel();
+                                }
+                            }
                         }
-                        if (wakeUp != Long.MAX_VALUE) {
-                            scheduleAlarm(wakeUp);
-                        }
-                        return;
-                    }
-                    isUpdating = false;
-                }
-
-                long now = mSystemFacade.currentTimeMillis();
-                keepService = false;
-                wakeUp = Long.MAX_VALUE;
-                Set<Long> idsNoLongerInDatabase = new HashSet<Long>(
-                        mDownloads.keySet());
-
-                Cursor cursor = getContentResolver().query(
-                        Downloads.CONTENT_URI, null, null, null,
-                        null);
-                if (cursor == null) {
-                    continue;
-                }
-                try {
-                    DownloadInfo.Reader reader = new DownloadInfo.Reader(
-                            getContentResolver(), cursor);
-                    int idColumn = cursor.getColumnIndexOrThrow(Downloads._ID);
-
-                    for (cursor.moveToFirst(); !cursor.isAfterLast(); cursor
-                            .moveToNext()) {
-                        long id = cursor.getLong(idColumn);
-                        idsNoLongerInDatabase.remove(id);
-                        DownloadInfo info = mDownloads.get(id);
-                        if (info != null) {
-                            updateDownload(reader, info, now);
-                        } else {
-                            info = insertDownload(reader, now);
-                        }
-                        if (info.hasCompletionNotification()) {
-                            keepService = true;
-                        }
-                        long next = info.nextAction(now);
-                        if (next == 0) {
-                            keepService = true;
-                        } else if (next > 0 && next < wakeUp) {
-                            wakeUp = next;
-                        }
-                    }
-                } finally {
-                    cursor.close();
-                }
-
-                for (Long id : idsNoLongerInDatabase) {
-                    deleteDownload(id);
-                }
-
-                // is there a need to start the DownloadService? yes, if there
-                // are rows to be deleted.
-
-                for (DownloadInfo info : mDownloads.values()) {
-                    if (info.mDeleted) {
-                        keepService = true;
-                        break;
                     }
                 }
 
-                mNotifier.updateNotification(mDownloads.values());
-
-                // look for all rows with deleted flag set and delete the rows
-                // from the database
-                // permanently
-                for (DownloadInfo info : mDownloads.values()) {
-                    if (info.mDeleted) {
-                        Helpers.deleteFile(getContentResolver(), info.mId,
-                                info.mFileName, info.mMimeType);
+                boolean isHaveWaiting = false;
+                if(downingThreads.size() < DownloadConfiger.MaxDownloadingTaskNum){
+                    //StatusDowning、StatusWaitingForExecute、StatusWaitingForNet、StatusWaitingForWifi、StatusWaitingForRetry
+                    List<Integer> canExcuteStatus = new LinkedList<>();
+                    canExcuteStatus.add(DownloadInfo.StatusDowning);
+                    canExcuteStatus.add(DownloadInfo.StatusWaitingForExecute);
+                    canExcuteStatus.add(DownloadInfo.StatusWaitingForNet);
+                    canExcuteStatus.add(DownloadInfo.StatusWaitingForWifi);
+                    canExcuteStatus.add(DownloadInfo.StatusWaitingForRetry);
+                    IWhere where = null;
+                    if(downingThreads.isEmpty()){
+                        where = Where.create().in(Downloads.ColumnStatus, canExcuteStatus);
+                    }else{
+                        where = AndWhere.create()
+                                .and(Where.create().in(Downloads.ColumnStatus, canExcuteStatus))
+                                .and(Where.create().notIn(Downloads.ColumnID, downingThreads.keySet()));
                     }
+                    //downingThreads不包含的需要下载的任务
+                    List<DownloadInfo> downloadInfos = dao.queryDownloadInfos(where, null);
+
+                    if(!downloadInfos.isEmpty()){
+                        boolean isNetworkConnected = mSystemFacade.isNetworkConnected();
+                        boolean isWifiActive = mSystemFacade.isWifiActive();
+                        while (downingThreads.size() < DownloadConfiger.MaxDownloadingTaskNum && !canExcuteStatus.isEmpty()){
+                            Integer status = canExcuteStatus.remove(0);
+                            if(status == DownloadInfo.StatusWaitingForNet && !isNetworkConnected){
+                                isHaveWaiting = true;
+                                continue;
+                            }
+                            if(status == DownloadInfo.StatusWaitingForWifi && !isWifiActive){
+                                isHaveWaiting = true;
+                                continue;
+                            }
+
+                            for(DownloadInfo di : downloadInfos){
+                                //noinspection ResourceType
+                                if(di.getStatus() != status){
+                                    continue;
+                                }
+                                if(di.getStatus() == DownloadInfo.StatusDowning){
+                                    if(!isNetworkConnected){
+                                        dao.updateDownload(UpdateCondition.create()
+                                                .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForNet)
+                                                .setWhere(Where.create().eq(Downloads.ColumnID, di.getId())));
+                                        isHaveWaiting = true;
+                                        continue;
+                                    }else if(di.getIsOnlyWifi() && !isWifiActive){
+                                        dao.updateDownload(UpdateCondition.create()
+                                                .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForWifi)
+                                                .setWhere(Where.create().eq(Downloads.ColumnID, di.getId())));
+                                        isHaveWaiting = true;
+                                        continue;
+                                    }
+                                }
+
+
+                                synchronized (downingThreads){
+                                    if(downingThreads.size() >= DownloadConfiger.MaxDownloadingTaskNum){
+                                        break;
+                                    }
+                                    //noinspection ResourceType
+                                    if(di.getStatus() == status && !downingThreads.containsKey(di.getId())){
+                                        DownloadThread dt = new DownloadThread(getApplication(), di, mSystemFacade);
+                                        mSystemFacade.startThread(dt);
+                                        downingThreads.put(di.getId(), dt);
+                                        LogUtil.d(DownloadService.class, "UpdateThread start thread : " + di.getUrl());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if(downingThreads.isEmpty() && !isHaveWaiting){
+                    //没有等待网络或正在下载的任务，可以停止服务
+                    stopSelf();
+                }
+            } catch (Exception e){
+                LogUtil.e(getClass(), e.toString());
+            } finally {
+                LogUtil.d(DownloadService.class, "UpdateThread finish");
+                isUpdating.set(false);
+                if(isHaveUpdateRequest.get()){
+                    updateFromProvider();
                 }
             }
-        }
-
-        private void scheduleAlarm(long wakeUp) {
-            AlarmManager alarms = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-            if (alarms == null) {
-                LogUtil.e(DownloadService.class, "couldn't get alarm manager");
-                return;
-            }
-
-            LogUtil.d(DownloadService.class, "scheduling retry in " + wakeUp + "ms");
-
-            Intent intent = new Intent(Constants.ACTION_RETRY);
-            intent.setClassName(getPackageName(),
-                    DownloadReceiver.class.getName());
-            alarms.set(AlarmManager.RTC_WAKEUP,
-                    mSystemFacade.currentTimeMillis() + wakeUp, PendingIntent
-                            .getBroadcast(DownloadService.this, 0, intent,
-                                    PendingIntent.FLAG_ONE_SHOT));
         }
     }
 
-    public static interface Cancelable{
-        public void cancel();
+    public interface Cancelable{
+        void cancel();
     }
 
     // --------------------- logical fragments -----------------

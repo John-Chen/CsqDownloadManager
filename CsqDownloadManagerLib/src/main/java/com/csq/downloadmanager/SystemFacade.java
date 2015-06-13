@@ -11,13 +11,11 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.telephony.TelephonyManager;
+
 import com.csq.downloadmanager.util.LogUtil;
 
-import java.util.Timer;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 public class SystemFacade {
 
@@ -59,6 +57,10 @@ public class SystemFacade {
         return activeInfo.getType();
     }
 
+    public boolean isNetworkConnected(){
+        return getActiveNetworkType() != null;
+    }
+
     public boolean isWifiActive(){
         Integer type = getActiveNetworkType();
         return type != null && type == ConnectivityManager.TYPE_WIFI;
@@ -92,10 +94,6 @@ public class SystemFacade {
 
     public void startThread(Runnable runnable) {
         executorService.execute(runnable);
-    }
-
-    public <T> Future<T> startThreadForResult(Callable<T> Callable) {
-        return executorService.submit(Callable);
     }
 
     // --------------------- Methods private ---------------------

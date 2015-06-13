@@ -71,6 +71,8 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
 
     @Override
     public void run() {
+        LogUtil.w(DownloadThread.class, "Thread start : " + downloadInfo.getUrl());
+
         android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
 
         PowerManager.WakeLock wakeLock = ((PowerManager) context.getSystemService(Context.POWER_SERVICE))
@@ -185,6 +187,13 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                 new File(downloadInfo.getTempFilePath()).deleteOnExit();
             }
 
+            //每个下载任务最大下载线程数
+            if(downloadInfo.getCurrentBytes().getAllDownloadedBytes() < 1){
+                if(downloadInfo.getThreadNum() > DownloadConfiger.MaxTreadNumPerTask){
+                    downloadInfo.setThreadNum(DownloadConfiger.MaxTreadNumPerTask);
+                }
+            }
+
             //更新数据库
             DownloadInfoDao.getInstace(context).updateDownload(
                     UpdateCondition.create()
@@ -273,12 +282,20 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                             .setWhere(new Where().eq(Downloads.ColumnID, downloadInfo.getId())));
             downloadNotification.update(systemFacade, downloadInfo);
 
+            DownloadService.downloadThreadFinished(downloadInfo.getId());
+
             wakeLock.release();
+
+            LogUtil.w(DownloadThread.class, "Thread finished : " + downloadInfo.getUrl());
         }
     }
 
     @Override
     public void cancel() {
+        if(isCanceled){
+            return;
+        }
+
         isCanceled = true;
 
         if(!taskList.isEmpty()){
@@ -291,7 +308,7 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
             }
         }
 
-        LogUtil.w(DownloadThread.class, "Thread canceled");
+        LogUtil.w(DownloadThread.class, "Thread canceled : " + downloadInfo.getUrl());
     }
 
     // --------------------- Methods public ----------------------

@@ -49,12 +49,6 @@ public class DownloadConfiger {
      */
     public static final int MaxDownloadingTaskNum = 3;
 
-
-    /**
-     * 每个人物失败次数
-     */
-    public static final int MaxTaskRetryTimes = 5;
-
     /**
      * 手机网络下能下载的最大大小，1G
      */

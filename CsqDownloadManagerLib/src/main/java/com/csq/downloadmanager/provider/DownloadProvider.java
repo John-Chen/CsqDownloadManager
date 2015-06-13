@@ -8,7 +8,6 @@ package com.csq.downloadmanager.provider;
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
-import android.content.Intent;
 import android.content.UriMatcher;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -103,8 +102,6 @@ public class DownloadProvider extends ContentProvider {
             return null;
         }
 
-        getContext().startService(new Intent(getContext(), DownloadService.class));
-
         notifyChange(uri, match);
         DownloadConfiger.EventDispatcher.downloadInfoAdded(getContext(), new long[]{rowID});
 
@@ -130,10 +127,11 @@ public class DownloadProvider extends ContentProvider {
         String ws = Where.create().in(Downloads.ColumnID, ids).getSelection();
         int count = db.delete(TableUtil.TABLE_NAME, ws, null);
 
-        int match = sURIMatcher.match(uri);
-        notifyChange(uri, match);
-
-        DownloadConfiger.EventDispatcher.downloadInfoRemoved(getContext(), ids);
+        if(count > 0){
+            int match = sURIMatcher.match(uri);
+            notifyChange(uri, match);
+            DownloadConfiger.EventDispatcher.downloadInfoRemoved(getContext(), ids);
+        }
 
         return count;
     }
@@ -163,14 +161,11 @@ public class DownloadProvider extends ContentProvider {
                 ws,
                 null);
 
-        int match = sURIMatcher.match(uri);
-        notifyChange(uri, match);
-
-        if (values.containsKey(Downloads.ColumnStatus)) {
-            getContext().startService(new Intent(getContext(), DownloadService.class));
+        if(count > 0){
+            int match = sURIMatcher.match(uri);
+            notifyChange(uri, match);
+            DownloadConfiger.EventDispatcher.downloadInfoChanged(getContext(), ids, values);
         }
-
-        DownloadConfiger.EventDispatcher.downloadInfoChanged(getContext(), ids, values);
 
         return count;
     }
@@ -240,6 +235,8 @@ public class DownloadProvider extends ContentProvider {
         }
         getContext().getContentResolver().notifyChange(
                 ContentUris.withAppendedId(Downloads.CONTENT_URI, downId), null);
+
+        DownloadService.startService(getContext());
     }
 
     private long[] queryIds(Uri uri,

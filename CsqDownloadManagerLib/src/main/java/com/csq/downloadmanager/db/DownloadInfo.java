@@ -407,7 +407,7 @@ public class DownloadInfo implements java.io.Serializable {
 
     /**
      * 接收到EventDispatcher下发的数据改变事件后，将改变的数据更新到某个DownloadInfo
-     * {@link com.csq.downloadmanager.dispatcher.EventDispatcher#downloadInfoChanged(Context,ContentValues)}
+     * {@link com.csq.downloadmanager.dispatcher.EventDispatcher#downloadInfoChanged(Context,long[],ContentValues)}
      * @param updatedContentValues 收到的EventValueUpdatedContentValues事件数据
      */
     public void updateByUpdatedContentValues(ContentValues updatedContentValues){
