@@ -10,16 +10,15 @@
     <!-- Allows access to the Download Manager -->
     <permission
         android:name="com.csq.permission.ACCESS_DOWNLOAD_MANAGER"
-        android:description="@string/permission_desc"
-        android:label="@string/permission_label"
         android:protectionLevel="normal" />
+    <uses-permission android:name="com.csq.permission.ACCESS_DOWNLOAD_MANAGER" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-
-    <uses-permission android:name="com.csq.permission.ACCESS_DOWNLOAD_MANAGER" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:allowBackup="true"
@@ -36,9 +35,19 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name="com.csq.downloadmanager.DownloadListActivity"
+            android:label="@string/title_activity_download_list"
+            android:launchMode="singleInstance">
+            <intent-filter>
+                <action android:name="com.csq.downloadmanager.DownloadListActivity"/>
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <provider
             android:name="com.csq.downloadmanager.provider.DownloadProvider"
-            android:authorities="com.csq.downloadmanager" />
+            android:authorities="com.csq.downloadmanager.provider" />
 
         <service android:name="com.csq.downloadmanager.service.DownloadService" />
 
