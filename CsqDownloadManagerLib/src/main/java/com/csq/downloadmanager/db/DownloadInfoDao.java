@@ -247,6 +247,31 @@ public class DownloadInfoDao {
         }
     }
 
+    @NonNull
+    public List<DownloadInfo> queryAll(){
+        String[] pro = new String[Downloads.AllProjectionMap.size()];
+        Downloads.AllProjectionMap.keySet().toArray(pro);
+        Cursor cursor = mResolver.query(Downloads.CONTENT_URI,
+                pro,
+                null,
+                null,
+                null);
+        try {
+            if(cursor == null || cursor.getCount() < 1){
+                return Collections.EMPTY_LIST;
+            }
+            List<DownloadInfo> results = new ArrayList<DownloadInfo>(cursor.getCount());
+            for (cursor.moveToFirst(); !cursor.isAfterLast(); cursor.moveToNext()){
+                results.add(DbUtil.readEntity(cursor));
+            }
+            return results;
+        } finally {
+            if(cursor != null){
+                cursor.close();
+            }
+        }
+    }
+
     /**
      * 通过id查询下载信息
      * @param id 要查询的id值

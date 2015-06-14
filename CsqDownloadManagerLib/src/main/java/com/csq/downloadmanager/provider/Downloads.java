@@ -18,7 +18,7 @@ public class Downloads {
      * DownloadProvider authority
      */
     public static final String AUTHORITY
-            = "com.csq.downloadmanager";
+            = "com.csq.downloadmanager.provider";
 
     /**
      * The permission to access the download manager

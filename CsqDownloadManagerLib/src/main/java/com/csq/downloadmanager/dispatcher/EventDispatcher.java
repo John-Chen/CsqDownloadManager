@@ -12,10 +12,12 @@ import android.support.annotation.NonNull;
  * github:https://github.com/John-Chen
  */
 public interface EventDispatcher {
+    String EventDownloadInfoAction = "EventDownloadInfoAction";
 
-    String EventDownloadInfoAdded = "EventDownloadInfoAdded";
-    String EventDownloadInfoRemoved = "EventDownloadInfoRemoved";
-    String EventDownloadInfoChanged = "EventDownloadInfoChanged";
+    String EventDownloadInfoChangeType = "EventDownloadInfoChangeType";
+    int ChangeTypeAdded = 0;
+    int ChangeTypeRemoved = 1;
+    int ChangeTypeUpdated = 2;
 
     String EventValueChangedIds = "EventValueChangedIds";
     String EventValueUpdatedContentValues = "EventValueUpdatedContentValues";

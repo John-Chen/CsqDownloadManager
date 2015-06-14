@@ -33,7 +33,7 @@ public class TableUtil {
         dropTable(db);
 
         String sql = "CREATE TABLE " + TABLE_NAME + "(" +
-                Downloads.ColumnID + " BIGINT PRIMARY KEY AUTOINCREMENT," + // 0: id
+                Downloads.ColumnID + " INTEGER PRIMARY KEY AUTOINCREMENT," + // 0: id
                 Downloads.ColumnFileName + " TEXT," + // 1: fileName
                 Downloads.ColumnDescription + " TEXT," + // 2: description
                 Downloads.ColumnUrl + " TEXT NOT NULL ," + // 3: url
@@ -51,7 +51,7 @@ public class TableUtil {
                 Downloads.ColumnLastModifyTime + " BIGINT," + // 15: lastModifyTime
                 Downloads.ColumnStatus + " INTEGER DEFAULT " + DownloadInfo.StatusWaitingForExecute + "," + // 16: status
                 Downloads.ColumnNumFailed + " INTEGER," + // 17: waitingReason
-                Downloads.ColumnRetryAfterTime + " BIGINT," + // 18: retryAfterTime
+                Downloads.ColumnRetryAfterTime + " BIGINT" + // 18: retryAfterTime
                 ");";
         db.execSQL(sql);
 

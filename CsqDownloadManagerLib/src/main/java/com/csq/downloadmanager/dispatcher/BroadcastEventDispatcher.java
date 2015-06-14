@@ -14,7 +14,8 @@ public class BroadcastEventDispatcher implements EventDispatcher {
     @Override
     public void downloadInfoAdded(Context context, long[] downloadIds) {
         if(downloadIds.length > 0){
-            Intent i = new Intent(EventDownloadInfoAdded);
+            Intent i = new Intent(EventDownloadInfoAction);
+            i.putExtra(EventDownloadInfoChangeType, ChangeTypeAdded);
             i.putExtra(EventValueChangedIds, downloadIds);
             context.sendBroadcast(i);
         }
@@ -23,7 +24,8 @@ public class BroadcastEventDispatcher implements EventDispatcher {
     @Override
     public void downloadInfoRemoved(Context context, long[] downloadIds) {
         if(downloadIds.length > 0){
-            Intent i = new Intent(EventDownloadInfoRemoved);
+            Intent i = new Intent(EventDownloadInfoAction);
+            i.putExtra(EventDownloadInfoChangeType, ChangeTypeRemoved);
             i.putExtra(EventValueChangedIds, downloadIds);
             context.sendBroadcast(i);
         }
@@ -32,7 +34,8 @@ public class BroadcastEventDispatcher implements EventDispatcher {
     @Override
     public void downloadInfoChanged(Context context, long[] downloadIds, ContentValues changedColumns) {
         if(changedColumns.size() > 0){
-            Intent i = new Intent(EventDownloadInfoChanged);
+            Intent i = new Intent(EventDownloadInfoAction);
+            i.putExtra(EventDownloadInfoChangeType, ChangeTypeUpdated);
             i.putExtra(EventValueChangedIds, downloadIds);
             i.putExtra(EventValueUpdatedContentValues, changedColumns);
             context.sendBroadcast(i);

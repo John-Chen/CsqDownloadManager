@@ -11,6 +11,7 @@ import android.content.Intent;
 import android.database.ContentObserver;
 import android.os.Handler;
 import android.os.IBinder;
+
 import com.csq.downloadmanager.SystemFacade;
 import com.csq.downloadmanager.configer.DownloadConfiger;
 import com.csq.downloadmanager.db.DownloadInfo;
@@ -21,6 +22,7 @@ import com.csq.downloadmanager.db.query.Where;
 import com.csq.downloadmanager.db.update.UpdateCondition;
 import com.csq.downloadmanager.provider.Downloads;
 import com.csq.downloadmanager.util.LogUtil;
+
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -175,7 +177,7 @@ public class DownloadService extends Service {
                 //删除或暂停的
                 synchronized (downingThreads){
                     if(!downingThreads.isEmpty()){
-                        List<DownloadInfo> downingDbs = dao.queryDownloadInfos(Where.create().in(Downloads.ColumnID, downingThreads.keySet()), null);
+                        List<DownloadInfo> downingDbs = dao.queryDownloadInfos(Where.create().in(Downloads.ColumnID, downingThreads.keySet().toArray()), null);
                         for(Map.Entry<Long, DownloadThread> entry : downingThreads.entrySet()){
                             DownloadInfo db = null;
                             for(DownloadInfo di : downingDbs){

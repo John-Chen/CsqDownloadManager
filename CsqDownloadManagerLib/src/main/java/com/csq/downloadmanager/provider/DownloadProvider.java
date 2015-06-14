@@ -44,8 +44,8 @@ public class DownloadProvider extends ContentProvider {
 
     private static final UriMatcher sURIMatcher = new UriMatcher(UriMatcher.NO_MATCH);
     static{
-        sURIMatcher.addURI(Downloads.AUTHORITY, "csq_downloads", MatchCode);
-        sURIMatcher.addURI(Downloads.AUTHORITY, "csq_downloads/#", MatchCodeItem);
+        sURIMatcher.addURI(Downloads.AUTHORITY, "downloads", MatchCode);
+        sURIMatcher.addURI(Downloads.AUTHORITY, "downloads/#", MatchCodeItem);
     }
 
 

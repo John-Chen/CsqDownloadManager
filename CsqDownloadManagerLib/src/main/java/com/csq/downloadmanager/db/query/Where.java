@@ -6,8 +6,10 @@
 package com.csq.downloadmanager.db.query;
 
 import android.support.annotation.NonNull;
-import java.util.Arrays;
+
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 public class Where implements IWhere{
 
@@ -111,9 +113,27 @@ public class Where implements IWhere{
         }
         stringBuilder.append(columnName + " in " + "(");
         while (it.hasNext()){
-            stringBuilder.append("'" + it.next() + "',");
+            Object next = it.next();
+            Class clz = next.getClass().getComponentType();
+
+            if(clz == Long.class || clz == long.class){
+                stringBuilder.append("'" + (Long)next + "',");
+
+            }else if(clz == Integer.class || clz == int.class){
+                stringBuilder.append("'" + (Integer)next + "',");
+
+            }else if(clz == String.class){
+                stringBuilder.append("'" + (String)next + "',");
+
+            }else if(clz == Boolean.class || clz == boolean.class){
+                stringBuilder.append("'" + ((Boolean)next ? "1" : "0") + "',");
+
+            }else{
+                stringBuilder.append("'" + next + "',");
+            }
         }
         stringBuilder.deleteCharAt(stringBuilder.length() - 1);
+        stringBuilder.append(")");
         return this;
     }
 
@@ -127,24 +147,98 @@ public class Where implements IWhere{
         }
         stringBuilder.append(columnName + " not in " + "(");
         while (it.hasNext()){
-            stringBuilder.append("'" + it.next() + "',");
+            Object next = it.next();
+            Class clz = next.getClass().getComponentType();
+
+            if(clz == Long.class || clz == long.class){
+                stringBuilder.append("'" + (Long)next + "',");
+
+            }else if(clz == Integer.class || clz == int.class){
+                stringBuilder.append("'" + (Integer)next + "',");
+
+            }else if(clz == String.class){
+                stringBuilder.append("'" + (String)next + "',");
+
+            }else if(clz == Boolean.class || clz == boolean.class){
+                stringBuilder.append("'" + ((Boolean)next ? "1" : "0") + "',");
+
+            }else{
+                stringBuilder.append("'" + next + "',");
+            }
         }
         stringBuilder.deleteCharAt(stringBuilder.length() - 1);
+        stringBuilder.append(")");
         return this;
     }
 
     /**
      * Add a IN clause so the column must be equal-to one of the objects passed in.
      */
-    public Where in(@NonNull String columnName, @NonNull Object... objects) {
-        return in(columnName, Arrays.asList(objects));
+    public Where in(@NonNull String columnName, @NonNull Object[] objects) {
+        List<Object> os = new ArrayList<>(objects.length);
+        for(Object o : objects){
+            os.add(o);
+        }
+        return in(columnName, os);
     }
 
     /**
      * Same as {@link #in(String, Object...)} except with a NOT IN clause.
      */
-    public Where notIn(@NonNull String columnName, @NonNull Object... objects) {
-        return notIn(columnName, Arrays.asList(objects));
+    public Where notIn(@NonNull String columnName, @NonNull Object[] objects) {
+        List<Object> os = new ArrayList<>(objects.length);
+        for(Object o : objects){
+            os.add(o);
+        }
+        return notIn(columnName, os);
+    }
+
+    public Where in(@NonNull String columnName, @NonNull int[] objects) {
+        List<Object> ints = new ArrayList<>(objects.length);
+        for(Integer i : objects){
+            ints.add(i);
+        }
+        return in(columnName, ints);
+    }
+
+    public Where notIn(@NonNull String columnName, @NonNull int[] objects) {
+        List<Object> ints = new ArrayList<>(objects.length);
+        for(Integer i : objects){
+            ints.add(i);
+        }
+        return notIn(columnName, ints);
+    }
+
+    public Where in(@NonNull String columnName, @NonNull long[] objects) {
+        List<Object> longs = new ArrayList<>(objects.length);
+        for(Long i : objects){
+            longs.add(i);
+        }
+        return in(columnName, longs);
+    }
+
+    public Where notIn(@NonNull String columnName, @NonNull long[] objects) {
+        List<Object> longs = new ArrayList<>(objects.length);
+        for(Long i : objects){
+            longs.add(i);
+        }
+        return notIn(columnName, longs);
+    }
+
+    public Where in(@NonNull String columnName, @NonNull boolean[] objects) {
+        List<Object> bools = new ArrayList<>(objects.length);
+        for(Boolean i : objects){
+            bools.add(i);
+        }
+        return in(columnName, bools);
+    }
+
+    public Where notIn(@NonNull String columnName, @NonNull boolean[] objects) {
+        List<Object> bools = new ArrayList<>(objects.length);
+        for(Boolean i : objects){
+            bools.add(i);
+        }
+        return notIn(columnName, bools);
     }
 
     /**

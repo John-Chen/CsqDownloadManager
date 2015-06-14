@@ -14,5 +14,29 @@
 
     <string name="unknown_size">未知大小</string>
 
+    <string name="title_activity_download_list">下载列表</string>
+
+    <string name="empty_list">没有任何下载记录</string>
+
+    <string name="downing">下载中</string>
+    <string name="paused">已暂停</string>
+    <string name="waiting">等待中</string>
+    <string name="waiting_for_net">等待网络</string>
+    <string name="waiting_for_wifi">等待wifi</string>
+    <string name="downing_failed">下载失败</string>
+
+    <string name="open">打开</string>
+    <string name="delete">删除</string>
+    <string name="pause">暂停</string>
+    <string name="resume">恢复</string>
+    <string name="re_download">重新下载</string>
+
+    <string name="prompt">提示</string>
+    <string name="confirm_pause_unsupport_breakpoint">此任务不支持断点续传，是否确认暂停？</string>
+    <string name="ok">确认</string>
+    <string name="cancel">取消</string>
+    <string name="confirm_delete_task">确定删除此下载任务？</string>
+
+    <string name="file_have_no_handled_app">未知文件类型或没有安装打开此文件的应用</string>
 
 </resources>
