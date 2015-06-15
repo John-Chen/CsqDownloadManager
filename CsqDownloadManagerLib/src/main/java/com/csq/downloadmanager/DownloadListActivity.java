@@ -274,7 +274,7 @@ public class DownloadListActivity extends Activity {
             }else if(data.isSuccessed()){
                 tvStatus.setText(R.string.download_success);
             }else if(data.isFailed()){
-                tvStatus.setText(R.string.downing);
+                tvStatus.setText(R.string.download_failed);
             }else if(data.isPaused()){
                 tvStatus.setText(R.string.paused);
             }else if(data.getStatus() == DownloadInfo.StatusWaitingForNet){
@@ -313,7 +313,7 @@ public class DownloadListActivity extends Activity {
                 }
 
                 if(data.isWaiting() || data.isDowning()){
-                    btnPauseOrResume.setText(R.string.paused);
+                    btnPauseOrResume.setText(R.string.pause);
                 }else if(data.isPaused()){
                     btnPauseOrResume.setText(R.string.resume);
                 }else if(data.isFailed()){

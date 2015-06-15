@@ -21,6 +21,7 @@ import com.csq.downloadmanager.db.query.Where;
 import com.csq.downloadmanager.db.update.UpdateCondition;
 import com.csq.downloadmanager.notification.DownloadNotification;
 import com.csq.downloadmanager.provider.Downloads;
+import com.csq.downloadmanager.util.FileUtil;
 import com.csq.downloadmanager.util.Helpers;
 import com.csq.downloadmanager.util.LogUtil;
 import com.csq.downloadmanager.util.StorageUtil;
@@ -87,8 +88,8 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
             //检测网络连接
             checkConnectivity();
 
-            //检查存储卡是否挂载
-            if(!StorageUtil.isStorageVolumeMounted(context, downloadInfo.getFolderPath())){
+            //检查存储目录
+            if(!FileUtil.checkPathExist(downloadInfo.getFolderPath())){
                 throw new StopRequest(DownloadInfo.StatusFailedSdcardUnmounted,
                         "failed to getConnection");
             }
@@ -102,7 +103,9 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
             downloadNotification.update(systemFacade, downloadInfo);
 
             //更新重定向地址，没有的话reDirectUrl=url
-            downloadInfo.setReDirectUrl(getRedirectUrl(downloadInfo.getUrl(), 0));
+            String reDirectUrl = getRedirectUrl(downloadInfo.getUrl(), 0);
+            LogUtil.w(DownloadThread.class, "reDirectUrl = " + reDirectUrl);
+            downloadInfo.setReDirectUrl(reDirectUrl);
 
             checkWhetherCanceled();
             connection = getConnection(downloadInfo.getReDirectUrl(), 0, 0);
@@ -158,7 +161,9 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
 
             //检查存储空间
             if(downloadInfo.getTotalBytes() > 0){
-                if(StorageUtil.getAvailableBytes(new File(downloadInfo.getFolderPath())) < downloadInfo.getTotalBytes()){
+                long availableBytes = StorageUtil.getAvailableBytes(new File(downloadInfo.getFolderPath()));
+                LogUtil.w(DownloadThread.class, "availableBytes = " + availableBytes + "  of  " + downloadInfo.getUrl());
+                if(availableBytes < downloadInfo.getTotalBytes()){
                     throw new StopRequest(DownloadInfo.StatusFailedStorageNotEnough,
                             "the storage is not enough for " + downloadInfo.getTotalBytes() + "byte");
                 }
@@ -173,9 +178,8 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
 
             //更新ETag
             String headAcceptRanges = connection.getHeaderField("Accept-Ranges");
-            int headContentLength = connection.getContentLength();
-            String headEtag = (!TextUtils.isEmpty(headAcceptRanges) && headContentLength > 0)
-                    ? connection.getHeaderField("ETag") : "";
+            String headEtag = (!TextUtils.isEmpty(headAcceptRanges) && contentLenght > 0)
+                    ? connection.getHeaderField("ETag") : null;
             if(headEtag != null && !headEtag.equals(downloadInfo.getETag())){
                 downloadInfo.setETag(headEtag);
             }else{
@@ -220,7 +224,7 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                 systemFacade.startThread(task);
             }
             while (!taskList.isEmpty()
-                    && isCanceled
+                    && !isCanceled
                     && taskResults.size() < taskList.size()){
                 synchronized (taskResults){
                     taskResults.wait();

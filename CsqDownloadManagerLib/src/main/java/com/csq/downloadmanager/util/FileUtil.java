@@ -17,14 +17,8 @@ public class FileUtil {
      */
     public static boolean checkPathExist(@NonNull String path){
         File f = new File(path);
-        if(f.isDirectory()){
-            if(!f.exists()){
-                return f.mkdirs();
-            }
-        }else{
-            if(!f.getParentFile().exists()){
-                return f.getParentFile().mkdirs();
-            }
+        if (!f.exists()) {
+            return f.mkdirs();
         }
         return true;
     }

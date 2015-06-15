@@ -23,7 +23,6 @@
     <string name="waiting">等待中</string>
     <string name="waiting_for_net">等待网络</string>
     <string name="waiting_for_wifi">等待wifi</string>
-    <string name="downing_failed">下载失败</string>
 
     <string name="open">打开</string>
     <string name="delete">删除</string>
