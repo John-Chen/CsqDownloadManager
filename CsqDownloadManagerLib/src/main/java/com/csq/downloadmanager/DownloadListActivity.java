@@ -135,6 +135,18 @@ public class DownloadListActivity extends Activity {
         }.execute();
     }
 
+    private String getProgressTag(long downloadInfoId){
+        return "pb" + downloadInfoId;
+    }
+
+    private ProgressBar findProgressBar(long downloadInfoId){
+        View v = lvDownload.findViewWithTag(getProgressTag(downloadInfoId));
+        if(v != null){
+            return (ProgressBar) v;
+        }
+        return null;
+    }
+
 
     private class DownloadAdapter extends BaseAdapter{
 
@@ -227,13 +239,27 @@ public class DownloadListActivity extends Activity {
             for(long id : downloadIds){
                 updated.add(id);
             }
+            //只是更新进度
+            boolean isUpdateProgress = changedColumns.size() == 1
+                    && changedColumns.containsKey(Downloads.ColumnCurrentBytes);
             synchronized (datas){
+                ProgressBar progressBar = null;
                 for(DownloadInfo di : datas){
                     if(updated.contains(di.getId())){
                         di.updateByUpdatedContentValues(changedColumns);
+
+                        if(isUpdateProgress){
+                            progressBar = findProgressBar(di.getId());
+                            if(progressBar != null){
+                                progressBar.setProgress((int) (di.getProgress()*100));
+                            }
+                        }
                     }
                 }
-                notifyDataSetChanged();
+                if(!isUpdateProgress){
+                    //只是更新进度
+                    notifyDataSetChanged();
+                }
             }
         }
     }
@@ -320,6 +346,8 @@ public class DownloadListActivity extends Activity {
                     btnPauseOrResume.setText(R.string.re_download);
                 }
             }
+
+            pbProgress.setTag(getProgressTag(data.getId()));
         }
 
         @Override

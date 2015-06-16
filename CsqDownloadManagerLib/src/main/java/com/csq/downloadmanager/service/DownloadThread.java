@@ -493,21 +493,26 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
      * 更新数据库下载大小、广播通知
      */
     private void updateDbProgress(){
-        synchronized (downloadInfo){
-            long thisTime = System.currentTimeMillis();
-            int thisByte = downloadInfo.getCurrentBytes().getAllDownloadedBytes();
-            int thisProgress = (int) (downloadInfo.getProgress()*100);
-            if(thisTime - lastUpdateTime >= 1000
-                    || thisByte - lastUpdateByte > 128*1024
-                    || thisProgress != lastUpdateProgress){
-                //间隔1秒、下载128kb、进度+1/100
-                //更新进度
-                DownloadInfoDao.getInstace(context).updateDownload(
-                        UpdateCondition.create()
-                                .addColumn(Downloads.ColumnCurrentBytes, downloadInfo.getCurrentBytes().toDbJsonString())
-                                .setWhere(new Where().eq(Downloads.ColumnID, downloadInfo.getId())));
-                //更新Notification
-                downloadNotification.update(systemFacade, downloadInfo);
+        long thisTime = System.currentTimeMillis();
+        if(thisTime - lastUpdateTime >= 1000){
+            synchronized (downloadInfo){
+                int thisByte = downloadInfo.getCurrentBytes().getAllDownloadedBytes();
+                int thisProgress = (int) (downloadInfo.getProgress()*100);
+                if(thisByte - lastUpdateByte > 256*1024
+                        || thisProgress != lastUpdateProgress){
+                    //间隔1秒、下载128kb、进度+1/100
+                    //更新进度
+                    DownloadInfoDao.getInstace(context).updateDownload(
+                            UpdateCondition.create()
+                                    .addColumn(Downloads.ColumnCurrentBytes, downloadInfo.getCurrentBytes().toDbJsonString())
+                                    .setWhere(new Where().eq(Downloads.ColumnID, downloadInfo.getId())));
+                    //更新Notification
+                    downloadNotification.update(systemFacade, downloadInfo);
+
+                    lastUpdateTime = thisTime;
+                    lastUpdateByte = thisByte;
+                    lastUpdateProgress = thisProgress;
+                }
             }
         }
     }

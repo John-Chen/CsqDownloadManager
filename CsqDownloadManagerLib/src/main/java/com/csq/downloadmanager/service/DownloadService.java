@@ -8,10 +8,7 @@ package com.csq.downloadmanager.service;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.database.ContentObserver;
-import android.os.Handler;
 import android.os.IBinder;
-
 import com.csq.downloadmanager.SystemFacade;
 import com.csq.downloadmanager.configer.DownloadConfiger;
 import com.csq.downloadmanager.db.DownloadInfo;
@@ -22,7 +19,6 @@ import com.csq.downloadmanager.db.query.Where;
 import com.csq.downloadmanager.db.update.UpdateCondition;
 import com.csq.downloadmanager.provider.Downloads;
 import com.csq.downloadmanager.util.LogUtil;
-
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -38,11 +34,6 @@ public class DownloadService extends Service {
 
 
     // ------------------------- Fields --------------------------
-
-    /**
-     * 监听数据库改变
-     */
-    private DownloadManagerContentObserver mObserver;
 
     /**
      * 是否在检测数据库更新信息
@@ -89,10 +80,6 @@ public class DownloadService extends Service {
             mSystemFacade = new SystemFacade(this);
         }
 
-        mObserver = new DownloadManagerContentObserver();
-        getContentResolver().registerContentObserver(
-                Downloads.CONTENT_URI, true, mObserver);
-
         dao = DownloadInfoDao.getInstace(getApplication());
 
         mSystemFacade.cancelAllNotifications();
@@ -112,7 +99,6 @@ public class DownloadService extends Service {
      * Cleans up when the service is destroyed
      */
     public void onDestroy() {
-        getContentResolver().unregisterContentObserver(mObserver);
         LogUtil.d(DownloadService.class, "Service onDestroy");
         super.onDestroy();
     }
@@ -145,26 +131,6 @@ public class DownloadService extends Service {
 
 
     // --------------- Inner and Anonymous Classes ---------------
-
-    /**
-     * Receives notifications when the data in the content provider changes
-     */
-    private class DownloadManagerContentObserver extends ContentObserver {
-
-        public DownloadManagerContentObserver() {
-            super(new Handler());
-        }
-
-        /**
-         * Receives notification when the data in the observed content provider
-         * changes.
-         */
-        public void onChange(final boolean selfChange) {
-            LogUtil.d(DownloadService.class, "Service ContentObserver received notification");
-            updateFromProvider();
-        }
-
-    }
 
     private class UpdateThread implements Runnable {
         @Override

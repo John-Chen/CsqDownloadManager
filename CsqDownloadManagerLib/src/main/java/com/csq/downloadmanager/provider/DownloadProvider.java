@@ -103,6 +103,7 @@ public class DownloadProvider extends ContentProvider {
         }
 
         notifyChange(uri, match);
+        notifyStatusChange();
         DownloadConfiger.EventDispatcher.downloadInfoAdded(getContext(), new long[]{rowID});
 
         return ContentUris.withAppendedId(Downloads.CONTENT_URI, rowID);
@@ -130,6 +131,7 @@ public class DownloadProvider extends ContentProvider {
         if(count > 0){
             int match = sURIMatcher.match(uri);
             notifyChange(uri, match);
+            notifyStatusChange();
             DownloadConfiger.EventDispatcher.downloadInfoRemoved(getContext(), ids);
         }
 
@@ -164,6 +166,9 @@ public class DownloadProvider extends ContentProvider {
         if(count > 0){
             int match = sURIMatcher.match(uri);
             notifyChange(uri, match);
+            if(values.containsKey(Downloads.ColumnStatus)){
+                notifyStatusChange();
+            }
             DownloadConfiger.EventDispatcher.downloadInfoChanged(getContext(), ids, values);
         }
 
@@ -235,7 +240,12 @@ public class DownloadProvider extends ContentProvider {
         }
         getContext().getContentResolver().notifyChange(
                 ContentUris.withAppendedId(Downloads.CONTENT_URI, downId), null);
+    }
 
+    /**
+     * 数据库增加、删除、status改变调用
+     */
+    private void notifyStatusChange(){
         DownloadService.startService(getContext());
     }
 
