@@ -13,6 +13,7 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.SparseArray;
 import android.webkit.URLUtil;
+
 import com.csq.downloadmanager.SystemFacade;
 import com.csq.downloadmanager.configer.DownloadConfiger;
 import com.csq.downloadmanager.db.DownloadInfo;
@@ -25,6 +26,7 @@ import com.csq.downloadmanager.util.FileUtil;
 import com.csq.downloadmanager.util.Helpers;
 import com.csq.downloadmanager.util.LogUtil;
 import com.csq.downloadmanager.util.StorageUtil;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -120,12 +122,12 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
             handleErrorHttpStatusCode(connection, statusCode);
 
             //文件类型
-            downloadInfo.setMimeType(sanitizeMimeType(connection.getHeaderField("Content-Type")));
+            downloadInfo.setMimeType(sanitizeMimeType(getHeaderField(connection, "Content-Type")));
 
             //更新名字
             if(TextUtils.isEmpty(downloadInfo.getFileName())){
                 downloadInfo.setFileName(Helpers.getFileName(downloadInfo.getReDirectUrl(),
-                        connection.getHeaderField("Content-disposition"),
+                        getHeaderField(connection, "Content-disposition"),
                         downloadInfo.getMimeType()));
             }
             if(downloadInfo.getCurrentBytes().getAllDownloadedBytes() < 1){
@@ -177,9 +179,9 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
             }
 
             //更新ETag
-            String headAcceptRanges = connection.getHeaderField("Accept-Ranges");
+            String headAcceptRanges = getHeaderField(connection, "Accept-Ranges");
             String headEtag = (!TextUtils.isEmpty(headAcceptRanges) && contentLenght > 0)
-                    ? connection.getHeaderField("ETag") : null;
+                    ? getHeaderField(connection, "ETag") : null;
             if(headEtag != null && !headEtag.equals(downloadInfo.getETag())){
                 downloadInfo.setETag(headEtag);
             }else{
@@ -319,6 +321,26 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
 
 
     // --------------------- Methods private ---------------------
+
+    private String getHeaderField(HttpURLConnection conn, String key){
+        return encodeHeaderField(conn.getHeaderField(key));
+    }
+
+    private static String encodeHeaderField(String field){
+        /*if(field == null){
+            return null;
+        }
+        try {
+            //还是乱码。。。
+            return new String(field.getBytes("ISO-8859-1"), "UTF-8");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;*/
+        return field;
+    }
+
+
     private void checkWhetherCanceled() throws StopRequest {
         if(isCanceled){
             throw new StopRequest(DownloadInfo.StatusFailedCanceled,
@@ -373,10 +395,10 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
     private static void printResponseHeader(HttpURLConnection connection){
         Map<String, String> header = new LinkedHashMap<String, String>();
         for (int i = 0;; i++) {
-            String mine = connection.getHeaderField(i);
-            if (mine == null)
+            String v = connection.getHeaderField(i);
+            if (v == null)
                 break;
-            header.put(connection.getHeaderFieldKey(i), mine);
+            header.put(connection.getHeaderFieldKey(i), encodeHeaderField(v));
         }
         for (Map.Entry<String, String> entry : header.entrySet()) {
             String key = entry.getKey() != null ? entry.getKey() + ":" : "";
@@ -391,7 +413,7 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
     private void handleErrorHttpStatusCode(HttpURLConnection conn, int statusCode) throws StopRequest {
         if(isErrorStatusCode(statusCode)){
             if(statusCode == 503){
-                String retryAfter = conn.getHeaderField("Retry-After");
+                String retryAfter = getHeaderField(conn, "Retry-After");
                 if(!TextUtils.isEmpty(retryAfter)){
                     int seconds = 30;
                     try {
@@ -437,7 +459,7 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                     || statusCode == 302
                     || statusCode == 303
                     || statusCode == 307) {
-                String redirect = conn.getHeaderField("Location");
+                String redirect = getHeaderField(conn, "Location");
                 if(URLUtil.isNetworkUrl(redirect)){
                     return getRedirectUrl(originalUrl, redirectCount + 1);
                 }else{
@@ -495,13 +517,13 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
     private void updateDbProgress(){
         long thisTime = System.currentTimeMillis();
         if(thisTime - lastUpdateTime >= 1000){
+            //至少1秒才更新
             synchronized (downloadInfo){
                 int thisByte = downloadInfo.getCurrentBytes().getAllDownloadedBytes();
                 int thisProgress = (int) (downloadInfo.getProgress()*100);
                 if(thisByte - lastUpdateByte > 256*1024
                         || thisProgress != lastUpdateProgress){
-                    //间隔1秒、下载128kb、进度+1/100
-                    //更新进度
+                    //下载256kb、进度+1/100
                     DownloadInfoDao.getInstace(context).updateDownload(
                             UpdateCondition.create()
                                     .addColumn(Downloads.ColumnCurrentBytes, downloadInfo.getCurrentBytes().toDbJsonString())

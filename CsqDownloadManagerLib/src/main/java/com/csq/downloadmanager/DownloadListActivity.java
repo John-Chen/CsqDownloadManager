@@ -147,6 +147,18 @@ public class DownloadListActivity extends Activity {
         return null;
     }
 
+    private String getProgressTextTag(long downloadInfoId){
+        return "pt" + downloadInfoId;
+    }
+
+    private TextView findProgressTextView(long downloadInfoId){
+        View v = lvDownload.findViewWithTag(getProgressTextTag(downloadInfoId));
+        if(v != null){
+            return (TextView) v;
+        }
+        return null;
+    }
+
 
     private class DownloadAdapter extends BaseAdapter{
 
@@ -240,18 +252,29 @@ public class DownloadListActivity extends Activity {
                 updated.add(id);
             }
             //只是更新进度
-            boolean isUpdateProgress = changedColumns.size() == 1
+            boolean isUpdateProgress = changedColumns.size() == 2  //肯定包含Downloads.ColumnLastModifyTime
                     && changedColumns.containsKey(Downloads.ColumnCurrentBytes);
             synchronized (datas){
                 ProgressBar progressBar = null;
+                TextView tvProgress = null;
                 for(DownloadInfo di : datas){
                     if(updated.contains(di.getId())){
                         di.updateByUpdatedContentValues(changedColumns);
 
                         if(isUpdateProgress){
+                            int progress = (int) (di.getProgress()*100);
                             progressBar = findProgressBar(di.getId());
                             if(progressBar != null){
-                                progressBar.setProgress((int) (di.getProgress()*100));
+                                progressBar.setProgress(progress);
+                            }
+
+                            tvProgress = findProgressTextView(di.getId());
+                            if(tvProgress != null){
+                                if(di.getTotalBytes() < 1){
+                                    tvProgress.setText(R.string.unknown_size);
+                                }else{
+                                    tvProgress.setText(progress + "%");
+                                }
                             }
                         }
                     }
@@ -348,6 +371,7 @@ public class DownloadListActivity extends Activity {
             }
 
             pbProgress.setTag(getProgressTag(data.getId()));
+            tvProgress.setTag(getProgressTextTag(data.getId()));
         }
 
         @Override

@@ -499,7 +499,7 @@ public class DownloadInfo implements java.io.Serializable {
         }
         Intent intent = new Intent(Intent.ACTION_VIEW);
         PackageManager pm = context.getPackageManager();
-        intent.setDataAndType(Uri.fromParts("file", "", null), mimeType);
+        intent.setDataAndType(Uri.fromFile(new File(getDestFilePath())), mimeType);
         ResolveInfo ri = pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
         if(ri != null) {
             return intent;
