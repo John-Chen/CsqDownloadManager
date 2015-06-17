@@ -9,74 +9,13 @@
                 tools:context=".MainActivity"
                 android:orientation="vertical">
 
-    <LinearLayout
+    <ListView
+        android:id="@+id/lvStartUrls"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <EditText
-            android:id="@+id/etDown1"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textSize="10dp"
-            android:text="http://www.2bulu.com/base/file_down_d.htm?downParams=f7k2olcfLJ4="
-            />
-
-        <Button
-            android:id="@+id/btnDown1"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="下载"
-            android:onClick="onClick"/>
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <EditText
-            android:id="@+id/etDown2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textSize="10dp"
-            android:text="http://www.2bulu.com/base/file_down_d.htm?downParams=IcC6xlnyzeI="
-            />
-
-        <Button
-            android:id="@+id/btnDown2"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="下载"
-            android:onClick="onClick"/>
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <EditText
-            android:id="@+id/etDown3"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textSize="10dp"
-            android:text="http://d.3987.com/lvsezhiwu_150605/002.jpg"
-            />
-
-        <Button
-            android:id="@+id/btnDown3"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="下载"
-            android:onClick="onClick"/>
-    </LinearLayout>
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:cacheColorHint="@android:color/transparent"
+        />
 
     <Button
         android:id="@+id/btnDownloadList"
