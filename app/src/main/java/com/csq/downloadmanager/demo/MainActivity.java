@@ -12,7 +12,6 @@ import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import com.csq.downloadmanager.DownloadListActivity;
 import com.csq.downloadmanager.db.DownloadInfo;
 import com.csq.downloadmanager.db.DownloadInfoDao;
@@ -26,8 +25,6 @@ import java.util.List;
 public class MainActivity extends Activity {
 
     private ListView lvStartUrls;
-    private List<String> mTestUrls = new ArrayList<>();
-
     private UrlAdapter adapter;
 
     @Override
@@ -38,13 +35,32 @@ public class MainActivity extends Activity {
 
         adapter = new UrlAdapter();
         lvStartUrls.setAdapter(adapter);
+    }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        refreshList();
+    }
+
+    public void onClick(View v) {
+        switch(v.getId()){
+            case R.id.btnDownloadList:
+                startActivity(DownloadListActivity.getLaunchIntent(this));
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    private void refreshList(){
+        final List<String> mTestUrls = new ArrayList<>();
         mTestUrls.add("http://www.2bulu.com/base/file_down_d.htm?downParams=f7k2olcfLJ4=");
         mTestUrls.add("http://www.2bulu.com/base/file_down_d.htm?downParams=IcC6xlnyzeI=");
         mTestUrls.add("http://d.3987.com/lvsezhiwu_150605/002.jpg");
-        mTestUrls.add("http://dl.wenku.baidu.com/wenku29/%2Fc58ea6e3b9d350d9784e7b5d84ffbba9?sign=MBOT:y1jXjmMD4FchJHFHIGN4z:Rp5JvZu0AcS2BH4uOoE9XjzmMLY%3D&time=1434556342&response-content-disposition=attachment;%20filename=%22Android%D3%A6%D3%C3%D0%D4%C4%DC%D3%C5%BB%AF.pdf%22&response-content-type=application%2foctet-stream");
-        mTestUrls.add("http://yinyueshiting.baidu.com/data2/music/109017312/3514661434502861128.mp3?xcode=20d1077fafe3575019a583210f1a2e09");
-        mTestUrls.add("http://60.217.224.79/youku/67723E98BC94783D3CF6ED51DB/0300080100507E6CE267C6051312EF1BA7C738-B2B7-F77E-0486-1707688E800D.mp4");
+        mTestUrls.add("http://yinyueshiting.baidu.com/data2/music/109017312/351466122400128.mp3?xcode=7da503a01d84558184b505fb6b038464");
 
         new AsyncTask<Void, Integer, List<DownloadInfo>>(){
             @Override
@@ -65,19 +81,6 @@ public class MainActivity extends Activity {
                 adapter.updateDatas(mTestUrls);
             }
         }.execute();
-
-    }
-
-    public void onClick(View v) {
-        switch(v.getId()){
-            case R.id.btnDownloadList:
-                startActivity(DownloadListActivity.getLaunchIntent(this));
-                break;
-
-            default:
-
-                break;
-        }
     }
 
 
