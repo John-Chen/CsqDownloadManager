@@ -1,0 +1,5 @@
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false" android:drawable="@color/btn_unable"></item>
+	<item android:state_pressed="true" android:drawable="@color/btn_yellow_pre"></item>
+	<item android:drawable="@color/btn_yellow_nor"></item>
+</selector>

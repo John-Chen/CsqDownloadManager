@@ -6,9 +6,12 @@
 package com.csq.downloadmanager.service;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.IBinder;
+
 import com.csq.downloadmanager.SystemFacade;
 import com.csq.downloadmanager.configer.DownloadConfiger;
 import com.csq.downloadmanager.db.DownloadInfo;
@@ -19,6 +22,7 @@ import com.csq.downloadmanager.db.query.Where;
 import com.csq.downloadmanager.db.update.UpdateCondition;
 import com.csq.downloadmanager.provider.Downloads;
 import com.csq.downloadmanager.util.LogUtil;
+
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +55,7 @@ public class DownloadService extends Service {
     private SystemFacade mSystemFacade;
     private DownloadInfoDao dao;
 
+    private NetworkConnectionChangeReceiver mNetReceiver;
 
     /**
      * 正在下载的任务，key--DownloadInfo.id
@@ -84,6 +89,9 @@ public class DownloadService extends Service {
 
         mSystemFacade.cancelAllNotifications();
 
+        mNetReceiver = new NetworkConnectionChangeReceiver();
+        mNetReceiver.regist(this);
+
         updateFromProvider();
     }
 
@@ -100,6 +108,8 @@ public class DownloadService extends Service {
      */
     public void onDestroy() {
         LogUtil.d(DownloadService.class, "Service onDestroy");
+        mNetReceiver.unRegist(this);
+
         super.onDestroy();
     }
 
@@ -127,6 +137,7 @@ public class DownloadService extends Service {
         mUpdateExecutorService.execute(new UpdateThread());
     }
 
+
     // --------------------- Getter & Setter -----------------
 
 
@@ -140,23 +151,54 @@ public class DownloadService extends Service {
             isHaveUpdateRequest.set(false);
 
             try {
-                //删除或暂停的
-                synchronized (downingThreads){
-                    if(!downingThreads.isEmpty()){
-                        List<DownloadInfo> downingDbs = dao.queryDownloadInfos(Where.create().in(Downloads.ColumnID, downingThreads.keySet().toArray()), null);
-                        for(Map.Entry<Long, DownloadThread> entry : downingThreads.entrySet()){
-                            DownloadInfo db = null;
-                            for(DownloadInfo di : downingDbs){
-                                if(di.getId() == entry.getKey()){
-                                    db = di;
-                                    break;
-                                }
+                //检测正在下载的任务是否已删除或暂停，或者网络改变需要等待或取消
+                if(!downingThreads.isEmpty()){
+                    List<DownloadInfo> downingDbs = dao.queryDownloadInfos(Where.create().in(Downloads.ColumnID, downingThreads.keySet().toArray()), null);
+                    for(Map.Entry<Long, DownloadThread> entry : downingThreads.entrySet()){
+                        DownloadInfo db = null;
+                        for(DownloadInfo di : downingDbs){
+                            if(di.getId() == entry.getKey()){
+                                db = di;
+                                break;
                             }
-                            if(db == null){
-                                //deleted, cancel Thread
+                        }
+                        if(db == null){
+                            //已删除，deleted, cancel Thread
+                            if(!entry.getValue().isCanceled()){
                                 entry.getValue().cancel();
-                            }else{
-                                if(db.isPaused()){
+                            }
+
+                        }else{
+                            if(db.isPaused()){
+                                //暂停
+                                if(!entry.getValue().isCanceled()){
+                                    entry.getValue().cancel();
+                                }
+
+                            }else if(!mNetReceiver.isNetworkConnected){
+                                //网络连接 --> 断开，等待
+                                dao.updateDownload(UpdateCondition.create()
+                                        .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForNet)
+                                        .setWhere(Where.create().eq(Downloads.ColumnID, db.getId())));
+                                if(!entry.getValue().isCanceled()){
+                                    entry.getValue().cancel();
+                                }
+
+                            }else if(db.getIsOnlyWifi() && !mNetReceiver.isWifiActive){
+                                //wifi --> 非wifi状态，等待
+                                dao.updateDownload(UpdateCondition.create()
+                                        .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForWifi)
+                                        .setWhere(Where.create().eq(Downloads.ColumnID, db.getId())));
+                                if(!entry.getValue().isCanceled()){
+                                    entry.getValue().cancel();
+                                }
+
+                            }else if(!db.getIsAllowRoaming() && mNetReceiver.isNetworkRoaming){
+                                //非漫游 --> 漫游状态，取消下载
+                                dao.updateDownload(UpdateCondition.create()
+                                        .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusFailedCannotUseRoaming)
+                                        .setWhere(Where.create().eq(Downloads.ColumnID, db.getId())));
+                                if(!entry.getValue().isCanceled()){
                                     entry.getValue().cancel();
                                 }
                             }
@@ -164,14 +206,70 @@ public class DownloadService extends Service {
                     }
                 }
 
-                boolean isHaveWaiting = false;
-                if(downingThreads.size() < DownloadConfiger.MaxDownloadingTaskNum){
-                    //StatusDowning、StatusWaitingForExecute、StatusWaitingForNet、StatusWaitingForWifi、StatusWaitingForRetry
+                //downingThreads中没有而状态为StatusDowning的全部状态改为StatusWaitingForExecute/StatusWaitingForNet
+                Where whereIng = Where.create().eq(Downloads.ColumnStatus, DownloadInfo.StatusDowning);
+                if(!downingThreads.isEmpty()){
+                    whereIng.notIn(Downloads.ColumnID, downingThreads.keySet());
+                }
+                int statusTo = DownloadInfo.StatusWaitingForExecute;
+                if(!mNetReceiver.isNetworkConnected){
+                    statusTo = DownloadInfo.StatusWaitingForNet;
+                }
+                dao.updateDownload(UpdateCondition.create()
+                        .addColumn(Downloads.ColumnStatus, statusTo)
+                        .setWhere(whereIng));
+
+                if(mNetReceiver.isNetworkConnected){
+                    //网络连接，所有StatusWaitingForNet的状态改为StatusWaitingForExecute
+                    Where whereNet = Where.create().eq(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForNet);
+                    if(!downingThreads.isEmpty()){
+                        whereNet.notIn(Downloads.ColumnID, downingThreads.keySet());
+                    }
+                    dao.updateDownload(UpdateCondition.create()
+                            .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForExecute)
+                            .setWhere(whereNet));
+
+                    if(mNetReceiver.isWifiActive){
+                        //wifi连接，所有StatusWaitingForWifi的状态改为StatusWaitingForExecute
+                        Where where = Where.create().eq(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForWifi);
+                        if(!downingThreads.isEmpty()){
+                            where.notIn(Downloads.ColumnID, downingThreads.keySet());
+                        }
+                        dao.updateDownload(UpdateCondition.create()
+                                .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForExecute)
+                                .setWhere(where));
+                    }else{
+                        //wifi断开，所有StatusWaitingForExecute、StatusWaitingForRetry且只能在wifi下下载的，状态改为StatusWaitingForWifi
+                        Where where1 = Where.create().in(Downloads.ColumnStatus,
+                                new Integer[]{DownloadInfo.StatusWaitingForExecute,
+                                        DownloadInfo.StatusWaitingForRetry});
+                        if(!downingThreads.isEmpty()){
+                            where1.notIn(Downloads.ColumnID, downingThreads.keySet());
+                        }
+                        Where where2 = Where.create().eq(Downloads.ColumnIsOnlyWifi, 1);
+                        dao.updateDownload(UpdateCondition.create()
+                                .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForWifi)
+                                .setWhere(AndWhere.create().and(where1, where2)));
+                    }
+
+                }else{
+                    //网络断开，所有StatusWaitingForExecute、StatusWaitingForWifi、StatusWaitingForRetry改为StatusWaitingForNet
+                    Where where = Where.create().in(Downloads.ColumnStatus,
+                            new Integer[]{DownloadInfo.StatusWaitingForExecute,
+                                    DownloadInfo.StatusWaitingForWifi,
+                                    DownloadInfo.StatusWaitingForRetry});
+                    if(!downingThreads.isEmpty()){
+                        where.notIn(Downloads.ColumnID, downingThreads.keySet());
+                    }
+                    dao.updateDownload(UpdateCondition.create()
+                            .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForNet)
+                            .setWhere(where));
+                }
+
+                if(mNetReceiver.isNetworkConnected
+                        && downingThreads.size() < DownloadConfiger.MaxDownloadingTaskNum){
                     List<Integer> canExcuteStatus = new LinkedList<>();
-                    canExcuteStatus.add(DownloadInfo.StatusDowning);
                     canExcuteStatus.add(DownloadInfo.StatusWaitingForExecute);
-                    canExcuteStatus.add(DownloadInfo.StatusWaitingForNet);
-                    canExcuteStatus.add(DownloadInfo.StatusWaitingForWifi);
                     canExcuteStatus.add(DownloadInfo.StatusWaitingForRetry);
                     IWhere where = null;
                     if(downingThreads.isEmpty()){
@@ -185,59 +283,36 @@ public class DownloadService extends Service {
                     List<DownloadInfo> downloadInfos = dao.queryDownloadInfos(where, null);
 
                     if(!downloadInfos.isEmpty()){
-                        boolean isNetworkConnected = mSystemFacade.isNetworkConnected();
-                        boolean isWifiActive = mSystemFacade.isWifiActive();
-                        while (downingThreads.size() < DownloadConfiger.MaxDownloadingTaskNum && !canExcuteStatus.isEmpty()){
+                        while (downingThreads.size() < DownloadConfiger.MaxDownloadingTaskNum
+                                && !canExcuteStatus.isEmpty()){
                             Integer status = canExcuteStatus.remove(0);
-                            if(status == DownloadInfo.StatusWaitingForNet && !isNetworkConnected){
-                                isHaveWaiting = true;
-                                continue;
-                            }
-                            if(status == DownloadInfo.StatusWaitingForWifi && !isWifiActive){
-                                isHaveWaiting = true;
-                                continue;
-                            }
 
                             for(DownloadInfo di : downloadInfos){
                                 //noinspection ResourceType
                                 if(di.getStatus() != status){
                                     continue;
                                 }
-                                if(di.getStatus() == DownloadInfo.StatusDowning){
-                                    if(!isNetworkConnected){
-                                        dao.updateDownload(UpdateCondition.create()
-                                                .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForNet)
-                                                .setWhere(Where.create().eq(Downloads.ColumnID, di.getId())));
-                                        isHaveWaiting = true;
-                                        continue;
-                                    }else if(di.getIsOnlyWifi() && !isWifiActive){
-                                        dao.updateDownload(UpdateCondition.create()
-                                                .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForWifi)
-                                                .setWhere(Where.create().eq(Downloads.ColumnID, di.getId())));
-                                        isHaveWaiting = true;
-                                        continue;
-                                    }
+
+                                if(downingThreads.size() >= DownloadConfiger.MaxDownloadingTaskNum){
+                                    break;
                                 }
 
-
-                                synchronized (downingThreads){
-                                    if(downingThreads.size() >= DownloadConfiger.MaxDownloadingTaskNum){
-                                        break;
-                                    }
-                                    //noinspection ResourceType
-                                    if(di.getStatus() == status && !downingThreads.containsKey(di.getId())){
-                                        DownloadThread dt = new DownloadThread(getApplication(), di, mSystemFacade);
-                                        mSystemFacade.startThread(dt);
-                                        downingThreads.put(di.getId(), dt);
-                                        LogUtil.d(DownloadService.class, "UpdateThread start thread : " + di.getUrl());
-                                    }
+                                //noinspection ResourceType
+                                if(!downingThreads.containsKey(di.getId())){
+                                    DownloadThread dt = new DownloadThread(getApplication(), di, mSystemFacade);
+                                    mSystemFacade.startThread(dt);
+                                    downingThreads.put(di.getId(), dt);
+                                    LogUtil.d(DownloadService.class, "UpdateThread start thread : " + di.getUrl());
                                 }
                             }
                         }
                     }
                 }
 
-                if(downingThreads.isEmpty() && !isHaveWaiting){
+
+                int waitingSize = dao.query(Where.create()
+                        .lt(Downloads.ColumnStatus, DownloadInfo.StatusDowning), null).getCount();
+                if(downingThreads.isEmpty() && waitingSize < 1){
                     //没有等待网络或正在下载的任务，可以停止服务
                     stopSelf();
                 }
@@ -253,7 +328,37 @@ public class DownloadService extends Service {
         }
     }
 
+    private class NetworkConnectionChangeReceiver extends BroadcastReceiver {
+        public boolean isNetworkConnected = false;
+        public boolean isWifiActive = false;
+        public boolean isNetworkRoaming = false;
+
+        @Override
+        public void onReceive(Context arg0, Intent arg1) {
+            // TODO Auto-generated method stub
+            refreshNetStatus();
+            updateFromProvider();
+        }
+
+        private void refreshNetStatus(){
+            isNetworkConnected = mSystemFacade.isNetworkConnected();
+            isWifiActive = mSystemFacade.isWifiActive();
+            isNetworkRoaming = mSystemFacade.isNetworkRoaming();
+        }
+
+        public void regist(Context context){
+            IntentFilter f = new IntentFilter("android.net.conn.CONNECTIVITY_CHANGE");
+            context.registerReceiver(this, f);
+            refreshNetStatus();
+        }
+
+        public void unRegist(Context context){
+            context.unregisterReceiver(this);
+        }
+    }
+
     public interface Cancelable{
+        boolean isCanceled();
         void cancel();
     }
 

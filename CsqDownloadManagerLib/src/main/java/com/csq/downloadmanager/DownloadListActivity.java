@@ -289,7 +289,6 @@ public class DownloadListActivity extends Activity {
 
     private class ViewHolder implements View.OnClickListener{
         private TextView tvName, tvStatus, tvUrl, tvProgress;
-        private View lyProgress;
         private ProgressBar pbProgress;
         private View lyExpandable;
         private Button btnOpen, btnPauseOrResume, btnDelete;
@@ -300,7 +299,6 @@ public class DownloadListActivity extends Activity {
             tvStatus = (TextView) convertView.findViewById(R.id.tvStatus);
             tvUrl = (TextView) convertView.findViewById(R.id.tvUrl);
             tvProgress = (TextView) convertView.findViewById(R.id.tvProgress);
-            lyProgress = convertView.findViewById(R.id.lyProgress);
             pbProgress = (ProgressBar) convertView.findViewById(R.id.pbProgress);
             lyExpandable = convertView.findViewById(R.id.lyExpandable);
             btnOpen = (Button) convertView.findViewById(R.id.btnOpen);
@@ -337,15 +335,15 @@ public class DownloadListActivity extends Activity {
             tvUrl.setText(data.getUrl());
 
             if(data.isSuccessed()){
-                lyProgress.setVisibility(View.GONE);
+                pbProgress.setVisibility(View.GONE);
             }else{
-                lyProgress.setVisibility(View.VISIBLE);
+                pbProgress.setVisibility(View.VISIBLE);
                 pbProgress.setProgress((int) (data.getProgress()*100));
-                if(data.getTotalBytes() < 1){
-                    tvProgress.setText(R.string.unknown_size);
-                }else{
-                    tvProgress.setText(pbProgress.getProgress() + "%");
-                }
+            }
+            if(data.getTotalBytes() < 1){
+                tvProgress.setText(R.string.unknown_size);
+            }else{
+                tvProgress.setText((int) (data.getProgress()*100) + "%");
             }
 
             if(expandeItemId != data.getId()){
@@ -396,7 +394,7 @@ public class DownloadListActivity extends Activity {
                         }
 
                     }else if(data.isDowning()){
-                        if(TextUtils.isEmpty(data.getETag())){
+                        if(!data.isSupportBreakPoint()){
                             //不支持断点续传
                             DialogUtil.showConfirmDialog(DownloadListActivity.this,
                                     getResources().getString(R.string.confirm_pause_unsupport_breakpoint),

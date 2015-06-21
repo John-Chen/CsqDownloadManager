@@ -8,7 +8,6 @@ package com.csq.downloadmanager.util;
 import android.content.Context;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
-import android.webkit.URLUtil;
 
 import com.csq.downloadmanager.provider.Downloads;
 
@@ -40,7 +39,7 @@ public class Helpers {
     public static String getFileName(@NonNull String url,
                               String contentDisposition,
                               String mineType){
-        String name = URLUtil.guessFileName(url, contentDisposition, mineType);
+        String name = UrlUtil.guessFileName(url, contentDisposition, mineType);
         if(TextUtils.isEmpty(name)){
             name = "" + System.currentTimeMillis();
         }
@@ -49,7 +48,6 @@ public class Helpers {
 
 
     // --------------------- Methods private ---------------------
-
 
 
     // --------------------- Getter & Setter -----------------

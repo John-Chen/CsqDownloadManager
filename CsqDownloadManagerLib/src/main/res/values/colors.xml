@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="white">#ffffffff</color>
+    <color name="black">#ff000000</color>
+
+    <color name="light_grey">#ffb8b8b8</color>
+    <color name="dark_grey">#ff777676</color>
+
+    <!-- 正常暗灰文字颜色 -->
+    <color name="text_color_grey_nor">#ff585a55</color>
+    <!-- 无效文字颜色 -->
+    <color name="text_color_grey_invalid">#ffb8b8b8</color>
+    <!-- 橘黄文字颜色 -->
+    <color name="text_color_orange">#fffe5500</color>
+    <!-- 暗红色 -->
+    <color name="text_color_dull_red">#fd5959</color>
+    <!-- 红色 -->
+    <color name="text_color_red">#ffCC3333</color>
+
+    <color name="btn_unable">#ffc1c1c1</color>
+    <!--黄色-->
+    <color name="btn_yellow_nor">#ffffce55</color>
+    <color name="btn_yellow_pre">#ffffe6a8</color>
+    <!--红色-->
+    <color name="btn_red_nor">#fffb6e52</color>
+    <color name="btn_red_pre">#fffdb6a8</color>
+    <!-- 绿色 -->
+    <color name="btn_green_nor">#48cfae</color>
+    <color name="btn_green_pre">#a3e7d6</color>
+    <!--浅蓝色-->
+    <color name="btn_light_blue_nor">#4fc0e8</color>
+    <color name="btn_light_blue_pre">#a7dff3</color>
+    <!--紫色-->
+    <color name="btn_violet_nor">#ac92ed</color>
+    <color name="btn_violet_pre">#d5c8f6</color>
+    <!--蓝色-->
+    <color name="btn_blue_nor">#5d9cec</color>
+    <color name="btn_blue_pre">#aecdf5</color>
+    <!--深红色-->
+    <color name="btn_deep_red_nor">#ffed5564</color>
+    <color name="btn_deep_red_pre">#fff6aab1</color>
+
+</resources>

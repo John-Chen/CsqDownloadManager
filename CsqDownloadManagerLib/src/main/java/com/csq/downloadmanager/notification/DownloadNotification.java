@@ -10,6 +10,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.support.annotation.NonNull;
+import android.view.View;
 import android.widget.RemoteViews;
 
 import com.csq.downloadmanager.DownloadListActivity;
@@ -53,27 +54,35 @@ public class DownloadNotification {
         if(notification == null){
             notification = new Notification();
             notification.icon = R.mipmap.app_icon;
-            setFlag(Notification.FLAG_ONGOING_EVENT, true); //将此通知放到通知栏的"Ongoing"即"正在运行"组中
+
             notification.contentView = new RemoteViews(context.getPackageName(),
                     R.layout.download_notification);
         }
 
-        if(!info.isFinished()){
+        if(info.isDowning()){
             setFlag(Notification.FLAG_NO_CLEAR, true);      //击了通知栏中的"清除通知"后，此通知不清除
             setFlag(Notification.FLAG_AUTO_CANCEL, false);  //点击不隐藏
+            setFlag(Notification.FLAG_ONGOING_EVENT, true); //将此通知放到通知栏的"Ongoing"即"正在运行"组中
         }else{
             setFlag(Notification.FLAG_NO_CLEAR, false);     //击了通知栏中的"清除通知"后，此通知清除
             setFlag(Notification.FLAG_AUTO_CANCEL, true);   //点击隐藏
+            setFlag(Notification.FLAG_ONGOING_EVENT, false);
         }
 
         //名称
         notification.contentView.setTextViewText(R.id.tvName,
                 info.getFileName());
         //进度
-        notification.contentView.setProgressBar(R.id.pbProgress,
-                info.getTotalBytes(),
-                info.getTotalBytes() > 0 ? info.getCurrentBytes().getAllDownloadedBytes() : 1,
-                false);
+        if(info.isFinished()){
+            notification.contentView.setViewVisibility(R.id.pbProgress, View.GONE);
+        }else{
+            notification.contentView.setViewVisibility(R.id.pbProgress, View.VISIBLE);
+            notification.contentView.setProgressBar(R.id.pbProgress,
+                    info.getTotalBytes(),
+                    info.getTotalBytes() > 0 ? info.getCurrentBytes().getAllDownloadedBytes() : 1,
+                    false);
+        }
+
         //状态
         if(info.isSuccessed()){
             notification.contentView.setTextViewText(R.id.tvStatus,

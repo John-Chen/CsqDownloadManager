@@ -32,7 +32,7 @@ public class DownloadInfo implements java.io.Serializable {
     public static final int StatusWaitingForExecute = 0;      //初始状态，还未被查询到并开始下载;或者当前下载的任务数已经饱和，等待正在下载的任务结束
     public static final int StatusWaitingForNet = 1;          //当前网络断开，等待网络
     public static final int StatusWaitingForWifi = 2;         //仅在wifi下才能下载，等待wifi
-    public static final int StatusWaitingForRetry = 3;        //等待再次尝试下载，或者Retry-After，优先级低于StatusWaitingForExecute
+    public static final int StatusWaitingForRetry = 3;        //等待再次尝试下载，优先级低于StatusWaitingForExecute
     //正常下载状态[10,20)
     public static final int StatusDowning = 10;               //下载中
     public static final int StatusPaused = 11;                //暂停
@@ -44,10 +44,11 @@ public class DownloadInfo implements java.io.Serializable {
     public static final int StatusFailedSdcardUnmounted = 32;   //存储卡未挂载
     public static final int StatusFailedStorageNotEnough = 33;  //存储空间不足
     public static final int StatusFailedCannotUseRoaming = 34;  //不能漫游
-    public static final int StatusFailedRedirectError = 35;     //重定向过多或异常
-    public static final int StatusFailedUnExpectedStatusCode = 36; //状态码>=400
-    public static final int StatusFailedPermissionDenied = 37;  //权限异常
-    public static final int StatusFailedOtherException = 38;    //其他异常,IOException、MalformedURLException......
+    public static final int StatusFailedRetryAfter = 35;        //稍后再试
+    public static final int StatusFailedRedirectError = 36;     //重定向过多或异常
+    public static final int StatusFailedUnExpectedStatusCode = 37; //状态码>=400
+    public static final int StatusFailedPermissionDenied = 38;  //权限异常
+    public static final int StatusFailedOtherException = 39;    //其他异常,IOException、MalformedURLException......
 
     @IntDef({StatusWaitingForExecute,
             StatusWaitingForNet,
@@ -61,6 +62,7 @@ public class DownloadInfo implements java.io.Serializable {
             StatusFailedSdcardUnmounted,
             StatusFailedStorageNotEnough,
             StatusFailedCannotUseRoaming,
+            StatusFailedRetryAfter,
             StatusFailedRedirectError,
             StatusFailedUnExpectedStatusCode,
             StatusFailedPermissionDenied,
@@ -314,6 +316,13 @@ public class DownloadInfo implements java.io.Serializable {
     public DownloadInfo setETag(String eTag) {
         this.eTag = eTag;
         return this;
+    }
+
+    /**
+     * 是否支持断点续传
+     */
+    public boolean isSupportBreakPoint(){
+        return !TextUtils.isEmpty(eTag);
     }
 
     public long getLastModifyTime() {

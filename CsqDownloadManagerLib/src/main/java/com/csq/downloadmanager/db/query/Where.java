@@ -41,6 +41,9 @@ public class Where implements IWhere{
      * Add a '=' clause so the column must be equal to the value.
      */
     public Where eq(@NonNull String columnName, @NonNull Object value) {
+        if(stringBuilder.length() > 0){
+            stringBuilder.append(" and ");
+        }
         stringBuilder.append(columnName + " = " + "'" + value + "'");
         return this;
     }
@@ -49,6 +52,9 @@ public class Where implements IWhere{
      * Add a '!=' clause so the column must be not-equal-to the value.
      */
     public Where ne(@NonNull String columnName, @NonNull Object value) {
+        if(stringBuilder.length() > 0){
+            stringBuilder.append(" and ");
+        }
         stringBuilder.append(columnName + " != " + "'" + value + "'");
         return this;
     }
@@ -57,6 +63,9 @@ public class Where implements IWhere{
      * Add a '>=' clause so the column must be greater-than or equals-to the value.
      */
     public Where ge(@NonNull String columnName, @NonNull Object value){
+        if(stringBuilder.length() > 0){
+            stringBuilder.append(" and ");
+        }
         stringBuilder.append(columnName + " >= " + "'" + value + "'");
         return this;
     }
@@ -65,6 +74,9 @@ public class Where implements IWhere{
      * Add a '>' clause so the column must be greater-than the value.
      */
     public Where gt(@NonNull String columnName, @NonNull Object value) {
+        if(stringBuilder.length() > 0){
+            stringBuilder.append(" and ");
+        }
         stringBuilder.append(columnName + " > " + "'" + value + "'");
         return this;
     }
@@ -73,6 +85,9 @@ public class Where implements IWhere{
      * Add a '<=' clause so the column must be less-than or equals-to the value.
      */
     public Where le(@NonNull String columnName, @NonNull Object value) {
+        if(stringBuilder.length() > 0){
+            stringBuilder.append(" and ");
+        }
         stringBuilder.append(columnName + " <= " + "'" + value + "'");
         return this;
     }
@@ -81,6 +96,9 @@ public class Where implements IWhere{
      * Add a '<' clause so the column must be less-than the value.
      */
     public Where lt(@NonNull String columnName, @NonNull Object value) {
+        if(stringBuilder.length() > 0){
+            stringBuilder.append(" and ");
+        }
         stringBuilder.append(columnName + " < " + "'" + value + "'");
         return this;
     }
@@ -89,6 +107,9 @@ public class Where implements IWhere{
      * Add a LIKE clause so the column must mach the value using '%' patterns.
      */
     public Where like(@NonNull String columnName, @NonNull Object value) {
+        if(stringBuilder.length() > 0){
+            stringBuilder.append(" and ");
+        }
         stringBuilder.append(columnName + " like " + "'" + value + "'");
         return this;
     }
@@ -98,6 +119,9 @@ public class Where implements IWhere{
      * Add a BETWEEN clause so the column must be between the low and high parameters.
      */
     public Where between(@NonNull String columnName, @NonNull Object low, @NonNull Object high){
+        if(stringBuilder.length() > 0){
+            stringBuilder.append(" and ");
+        }
         stringBuilder.append(columnName + " between " + low + " and " + high);
         return this;
     }
@@ -110,6 +134,9 @@ public class Where implements IWhere{
         Iterator<?> it = objects.iterator();
         if(!it.hasNext()){
             return this;
+        }
+        if(stringBuilder.length() > 0){
+            stringBuilder.append(" and ");
         }
         stringBuilder.append(columnName + " in " + "(");
         while (it.hasNext()){
@@ -144,6 +171,9 @@ public class Where implements IWhere{
         Iterator<?> it = objects.iterator();
         if(!it.hasNext()){
             return this;
+        }
+        if(stringBuilder.length() > 0){
+            stringBuilder.append(" and ");
         }
         stringBuilder.append(columnName + " not in " + "(");
         while (it.hasNext()){
@@ -245,6 +275,9 @@ public class Where implements IWhere{
      * Add a 'IS NULL' clause so the column must be null. '=' NULL does not work.
      */
     public Where isNull(@NonNull String columnName) {
+        if(stringBuilder.length() > 0){
+            stringBuilder.append(" and ");
+        }
         stringBuilder.append(columnName + " is null");
         return this;
     }
@@ -253,6 +286,9 @@ public class Where implements IWhere{
      * Add a 'IS NOT NULL' clause so the column must not be null. '&lt;&gt;' NULL does not work.
      */
     public Where isNotNull(@NonNull String columnName) {
+        if(stringBuilder.length() > 0){
+            stringBuilder.append(" and ");
+        }
         stringBuilder.append(columnName + " is not null");
         return this;
     }
