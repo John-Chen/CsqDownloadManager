@@ -2,8 +2,10 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
               android:orientation="horizontal"
               android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:padding="12dp">
+              android:layout_height="wrap_content"
+              android:padding="12dp"
+              android:gravity="center_vertical"
+              >
 
     <TextView
         android:id="@+id/tvUrl"
@@ -17,8 +19,10 @@
 
     <Button
         android:id="@+id/btnDown"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="60dp"
+        android:layout_height="36dp"
+        style="@style/BTN_COMMON"
+        android:background="@drawable/btn_green"
         android:layout_marginLeft="5dp"
         android:text="下载"/>
 
