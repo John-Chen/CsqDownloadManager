@@ -15,7 +15,7 @@ import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
 import android.text.TextUtils;
 
-import com.csq.downloadmanager.configer.DownloadConfiger;
+import com.csq.downloadmanager.DownloadConfiger;
 import com.csq.downloadmanager.db.DownloadOpenHelper;
 import com.csq.downloadmanager.db.query.Where;
 import com.csq.downloadmanager.util.Helpers;

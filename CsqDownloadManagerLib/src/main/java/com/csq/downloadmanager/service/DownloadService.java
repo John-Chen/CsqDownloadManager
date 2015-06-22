@@ -13,7 +13,7 @@ import android.content.IntentFilter;
 import android.os.IBinder;
 
 import com.csq.downloadmanager.SystemFacade;
-import com.csq.downloadmanager.configer.DownloadConfiger;
+import com.csq.downloadmanager.DownloadConfiger;
 import com.csq.downloadmanager.db.DownloadInfo;
 import com.csq.downloadmanager.db.DownloadInfoDao;
 import com.csq.downloadmanager.db.query.AndWhere;

@@ -8,7 +8,7 @@ package com.csq.downloadmanager.util;
 import android.support.annotation.NonNull;
 import android.util.Log;
 
-import com.csq.downloadmanager.configer.DownloadConfiger;
+import com.csq.downloadmanager.DownloadConfiger;
 
 public class LogUtil {
 

@@ -15,7 +15,7 @@ import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
-import com.csq.downloadmanager.configer.DownloadConfiger;
+import com.csq.downloadmanager.DownloadConfiger;
 import com.csq.downloadmanager.provider.Downloads;
 import com.csq.downloadmanager.util.DbUtil;
 import org.json.JSONException;

@@ -4,9 +4,11 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.support.annotation.NonNull;
 
+import com.csq.downloadmanager.DownloadConfiger;
+
 /**
  * description : 下载事件分发器接口，默认广播，
- *      也可以修改{@link com.csq.downloadmanager.configer.DownloadConfiger#EventDispatcher}
+ *      也可以修改{@link DownloadConfiger#EventDispatcher}
  *      通过消息总线等其他方式分发
  * E-mail:csqwyyx@163.com
  * github:https://github.com/John-Chen
