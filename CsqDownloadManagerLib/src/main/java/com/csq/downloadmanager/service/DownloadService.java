@@ -275,9 +275,8 @@ public class DownloadService extends Service {
                     if(downingThreads.isEmpty()){
                         where = Where.create().in(Downloads.ColumnStatus, canExcuteStatus);
                     }else{
-                        where = AndWhere.create()
-                                .and(Where.create().in(Downloads.ColumnStatus, canExcuteStatus))
-                                .and(Where.create().notIn(Downloads.ColumnID, downingThreads.keySet()));
+                        where = Where.create().in(Downloads.ColumnStatus, canExcuteStatus)
+                                .notIn(Downloads.ColumnID, downingThreads.keySet());
                     }
                     //downingThreads不包含的需要下载的任务
                     List<DownloadInfo> downloadInfos = dao.queryDownloadInfos(where, null);
