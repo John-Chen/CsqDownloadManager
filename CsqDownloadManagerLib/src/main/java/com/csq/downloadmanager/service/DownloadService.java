@@ -246,7 +246,7 @@ public class DownloadService extends Service {
                         if(!downingThreads.isEmpty()){
                             where1.notIn(Downloads.ColumnID, downingThreads.keySet());
                         }
-                        Where where2 = Where.create().eq(Downloads.ColumnIsOnlyWifi, 1);
+                        Where where2 = Where.create().eq(Downloads.ColumnIsOnlyWifi, true);
                         dao.updateDownload(UpdateCondition.create()
                                 .addColumn(Downloads.ColumnStatus, DownloadInfo.StatusWaitingForWifi)
                                 .setWhere(AndWhere.create().and(where1, where2)));

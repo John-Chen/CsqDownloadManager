@@ -189,7 +189,7 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
             String headAcceptRanges = getHeaderField(connection, "Accept-Ranges");
             String headEtag = (!TextUtils.isEmpty(headAcceptRanges) && contentLenght > 0)
                     ? getHeaderField(connection, "ETag") : null;
-            if(headEtag != null && !headEtag.equals(downloadInfo.getETag())){
+            if(headEtag != null){
                 downloadInfo.setETag(headEtag);
             }else{
                 //不支持断点续传，单线程下载
@@ -296,13 +296,18 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
             }
 
             DownloadInfoDao.getInstace(context).updateDownload(condition);
-            downloadNotification.update(systemFacade, downloadInfo);
+            if(isCanceled()){
+                downloadNotification.cancel(systemFacade, downloadInfo);
+            }else{
+                downloadNotification.update(systemFacade, downloadInfo);
+            }
 
             DownloadService.downloadThreadFinished(downloadInfo.getId());
 
             wakeLock.release();
 
-            LogUtil.w(DownloadThread.class, "Thread finished : " + downloadInfo.getUrl());
+            LogUtil.w(DownloadThread.class, "Thread finished : " + downloadInfo.getUrl()
+                    + "   status = " + downloadInfo.getStatus());
         }
     }
 
@@ -468,8 +473,8 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
             }
         } catch (IOException e) {
             LogUtil.printException(DownloadThread.class, e);
-            throw new StopRequest(DownloadInfo.StatusFailedOtherException,
-                    "failed to connect");
+            return getRedirectUrl(originalUrl, redirectCount);
+
         } finally {
             if(conn != null){
                 conn.disconnect();
@@ -525,7 +530,9 @@ public class DownloadThread implements Runnable, DownloadService.Cancelable {
                                     .addColumn(Downloads.ColumnCurrentBytes, downloadInfo.getCurrentBytes().toDbJsonString())
                                     .setWhere(new Where().eq(Downloads.ColumnID, downloadInfo.getId())));
                     //更新Notification
-                    downloadNotification.update(systemFacade, downloadInfo);
+                    if(!isCanceled()){
+                        downloadNotification.update(systemFacade, downloadInfo);
+                    }
 
                     lastUpdateTime = thisTime;
                     lastUpdateByte = thisByte;

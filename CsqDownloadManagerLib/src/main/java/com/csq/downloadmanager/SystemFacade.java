@@ -76,7 +76,7 @@ public class SystemFacade {
         boolean isMobile = (info != null && info.getType() == ConnectivityManager.TYPE_MOBILE);
         final TelephonyManager mgr = getTelephonyManager();
         boolean isRoaming = isMobile && mgr.isNetworkRoaming();
-        LogUtil.d(SystemFacade.class, "network is roaming");
+        LogUtil.d(SystemFacade.class, "network is roaming ? " + isRoaming);
         return isRoaming;
     }
 

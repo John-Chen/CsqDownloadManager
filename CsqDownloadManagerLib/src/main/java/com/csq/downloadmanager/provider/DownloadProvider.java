@@ -144,7 +144,7 @@ public class DownloadProvider extends ContentProvider {
                       String selection,
                       String[] selectionArgs) {
         LogUtil.d(DownloadProvider.class, "update uri = " + uri.toString() + ", "
-                + "values = " + values.toString()
+                + "values = " + values.toString() + ", "
                 + "selection = " + selection + ", "
                 + "selectionArgs = " + selectionArgs);
 
